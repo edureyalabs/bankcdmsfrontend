@@ -1,7 +1,7 @@
 // FILE PATH: bank_cdms_dashboard/app/api/cdms/download/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { dbQuery } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -15,11 +15,10 @@ const BASE_CTE = `
 
 export async function GET(req: NextRequest) {
   try {
-    const db     = getDb();
     const params = new URL(req.url).searchParams;
 
     const where: string[] = [];
-    const binds: string[] = [];
+    const binds: unknown[] = [];
 
     const addIn = (col: string, vals: string[]) => {
       if (!vals.length) return;
@@ -38,19 +37,18 @@ export async function GET(req: NextRequest) {
     const dateFrom = params.get("dateFrom") || "";
     const dateTo   = params.get("dateTo")   || "";
 
-    if (account)  { where.push('Bank_Account = ?');      binds.push(account); }
-    if (invoice)  { where.push('Invoice_Number LIKE ?'); binds.push(`%${invoice}%`); }
-    if (ref)      { where.push('Reference_no LIKE ?');   binds.push(`%${ref}%`); }
-    if (dateFrom) { where.push('cvd_iso >= ?');          binds.push(dateFrom); }
-    if (dateTo)   { where.push('cvd_iso <= ?');          binds.push(dateTo); }
+    if (account)  { where.push("Bank_Account = ?");      binds.push(account); }
+    if (invoice)  { where.push("Invoice_Number LIKE ?"); binds.push(`%${invoice}%`); }
+    if (ref)      { where.push("Reference_no LIKE ?");   binds.push(`%${ref}%`); }
+    if (dateFrom) { where.push("cvd_iso >= ?");          binds.push(dateFrom); }
+    if (dateTo)   { where.push("cvd_iso <= ?");          binds.push(dateTo); }
 
-    const wc = where.length ? "WHERE " + where.join(" AND ") : "";
+    const W = where.length ? "WHERE " + where.join(" AND ") : "";
 
-    const rawRows = (
-      binds.length
-        ? db.prepare(`${BASE_CTE} SELECT * FROM dated ${wc} ORDER BY id ASC`).all(...binds)
-        : db.prepare(`${BASE_CTE} SELECT * FROM dated ORDER BY id ASC`).all()
-    ) as Record<string, unknown>[];
+    const rawRows = await dbQuery(
+      `${BASE_CTE} SELECT * FROM dated ${W} ORDER BY id ASC`,
+      binds
+    );
 
     if (!rawRows.length) return new NextResponse("No data", { status: 204 });
 
