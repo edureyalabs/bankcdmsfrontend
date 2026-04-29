@@ -5,40 +5,26 @@ import { dbQuery } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-// Normalise collected_date to YYYY-MM regardless of input format:
-//   DD/MM/YYYY  ->  YYYY-MM
-//   DD-MM-YYYY  ->  YYYY-MM
-//   YYYY-MM-DD  ->  YYYY-MM  (already correct)
-//   YYYY-MM-DD HH:MM:SS -> YYYY-MM
+// Two formats in collected_date:
+//   YYYY-MM-DD HH:MM:SS  ->  SUBSTR(,1,7) gives YYYY-MM  ✓
+//   MM/DD/YYYY           ->  need year from after 2nd slash, month from before 1st slash
+//
+// Detection: if char 5 is '-' it's ISO format, otherwise MM/DD/YYYY
 const MONTH_EXPR = `
   CASE
-    -- ISO: starts with 4-digit year  e.g. 2024-03-15 or 2024-03-15 12:00:00
-    WHEN SUBSTR(collected_date, 5, 1) IN ('-', '/')
-      THEN SUBSTR(collected_date, 1, 7)
-
-    -- DD/MM/YYYY  or  DD-MM-YYYY
-    WHEN INSTR(collected_date, '/') > 0
-      THEN SUBSTR(collected_date, INSTR(collected_date,'/')+INSTR(SUBSTR(collected_date,INSTR(collected_date,'/')+1),'/')+1, 4)
-        || '-'
-        || SUBSTR(
-             '0' || SUBSTR(collected_date, INSTR(collected_date,'/')+1,
-               INSTR(SUBSTR(collected_date, INSTR(collected_date,'/')+1), '/') - 1
-             ),
-             -2
-           )
-
-    WHEN INSTR(collected_date, '-') > 0
-         AND SUBSTR(collected_date, 5, 1) != '-'
-      THEN SUBSTR(collected_date, INSTR(collected_date,'-')+INSTR(SUBSTR(collected_date,INSTR(collected_date,'-')+1),'-')+1, 4)
-        || '-'
-        || SUBSTR(
-             '0' || SUBSTR(collected_date, INSTR(collected_date,'-')+1,
-               INSTR(SUBSTR(collected_date, INSTR(collected_date,'-')+1), '-') - 1
-             ),
-             -2
-           )
-
-    ELSE NULL
+    WHEN SUBSTR(collected_date, 5, 1) = '-'
+    THEN SUBSTR(collected_date, 1, 7)
+    ELSE
+      SUBSTR(collected_date,
+        INSTR(collected_date, '/') +
+        INSTR(SUBSTR(collected_date, INSTR(collected_date, '/') + 1), '/') + 1,
+        4
+      )
+      || '-'
+      || SUBSTR(
+           '0' || SUBSTR(collected_date, 1, INSTR(collected_date, '/') - 1),
+           -2
+         )
   END
 `;
 
@@ -62,10 +48,10 @@ function buildWhere(params: URLSearchParams) {
   const dateFrom = params.get("dateFrom") || "";
   const dateTo   = params.get("dateTo")   || "";
 
-  if (ref)      { where.push("Reference_no LIKE ?");                        binds.push(`%${ref}%`); }
-  if (invoice)  { where.push("Invoice_Number LIKE ?");                      binds.push(`%${invoice}%`); }
-  if (dateFrom) { where.push(`(${MONTH_EXPR}) >= SUBSTR(?,1,7)`);           binds.push(dateFrom); }
-  if (dateTo)   { where.push(`(${MONTH_EXPR}) <= SUBSTR(?,1,7)`);           binds.push(dateTo); }
+  if (ref)      { where.push("Reference_no LIKE ?");              binds.push(`%${ref}%`); }
+  if (invoice)  { where.push("Invoice_Number LIKE ?");            binds.push(`%${invoice}%`); }
+  if (dateFrom) { where.push(`(${MONTH_EXPR}) >= SUBSTR(?,1,7)`); binds.push(dateFrom); }
+  if (dateTo)   { where.push(`(${MONTH_EXPR}) <= SUBSTR(?,1,7)`); binds.push(dateTo); }
 
   return {
     W: where.length ? "WHERE " + where.join(" AND ") : "",
@@ -109,22 +95,20 @@ export async function GET(req: NextRequest) {
 
     const [byFc, byMonth, totalsRows, fcRows, brandRows, modeRows] = await Promise.all([
       dbQuery(pivotSql(W, "FC", "total DESC"), binds),
-
-      // Group by normalised YYYY-MM, filter out nulls, sort chronologically
-      dbQuery(pivotSql(
-        W,
-        MONTH_EXPR,
-        "CASE WHEN grp_key IS NULL THEN 1 ELSE 0 END, grp_key ASC"
-      ), binds),
-
+      dbQuery(
+        pivotSql(W, MONTH_EXPR, "grp_key ASC"),
+        binds
+      ),
       dbQuery(totalsSql(W), binds),
       dbQuery(`SELECT DISTINCT FC AS v FROM cdms_data WHERE FC IS NOT NULL AND FC != '' ORDER BY FC ASC`),
       dbQuery(`SELECT DISTINCT Brand AS v FROM cdms_data WHERE Brand IS NOT NULL AND Brand != '' ORDER BY Brand ASC`),
       dbQuery(`SELECT DISTINCT Collected_Mode AS v FROM cdms_data WHERE Collected_Mode IS NOT NULL AND Collected_Mode != '' ORDER BY Collected_Mode ASC`),
     ]);
 
-    // Filter out null/invalid month keys from by_month
-    const byMonthClean = byMonth.filter(r => r.grp_key && String(r.grp_key).match(/^\d{4}-\d{2}$/));
+    // Filter out any rows where grp_key is not a valid YYYY-MM
+    const byMonthClean = byMonth.filter(
+      r => r.grp_key && String(r.grp_key).match(/^\d{4}-\d{2}$/)
+    );
 
     return NextResponse.json({
       by_fc:    byFc,
