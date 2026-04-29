@@ -524,7 +524,7 @@ export default function SummaryPage() {
       </div>
 
       {/* ── Filter Panel ── */}
-      <div style={{ ...card, padding: "14px 16px" }}>
+      <div style={{ ...card,overflow: "visible", padding: "14px 16px" }}>
         <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", alignItems: "flex-end" }}>
           <MultiSelect label="FC"             options={opts?.fc     ?? []}    selected={draft.fc}     onChange={v => setDraft(d => ({ ...d, fc: v }))} />
           <MultiSelect label="Brand"          options={opts?.brand  ?? []}    selected={draft.brand}  onChange={v => setDraft(d => ({ ...d, brand: v }))} />
