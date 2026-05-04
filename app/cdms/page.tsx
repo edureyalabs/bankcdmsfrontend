@@ -508,7 +508,7 @@ export default function SummaryPage() {
       {/* ── Page Header ── */}
       <div>
         <h1 style={{ fontSize: "22px", fontWeight: 800, color: C.text1, letterSpacing: "-0.03em", margin: 0 }}>
-          Collection Summary
+          CDMS Mapping
         </h1>
         <p style={{ fontSize: "12px", color: C.text3, fontWeight: 500, marginTop: "4px", display: "flex", alignItems: "center", gap: "8px" }}>
           CDMS data · All sections reflect active filters
