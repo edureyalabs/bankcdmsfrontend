@@ -1,4 +1,4 @@
-// FILE PATH: bank_cdms_dashboard/components/Nav.tsx — REPLACE EXISTING
+// FILE PATH: components/Nav.tsx — REPLACE EXISTING
 
 "use client";
 
@@ -8,8 +8,11 @@ export default function Nav() {
   const pathname = usePathname();
   const router   = useRouter();
 
-  // Only show nav on authenticated pages (anything under /cdms or /bank)
-  const isAuth = pathname.startsWith("/cdms") || pathname.startsWith("/bank");
+  const isAuth =
+    pathname.startsWith("/cdms") ||
+    pathname.startsWith("/bank") ||
+    pathname.startsWith("/sales");
+
   if (!isAuth) return null;
 
   const handleLogout = async () => {
@@ -32,6 +35,13 @@ export default function Nav() {
     borderBottom: active ? "2px solid #60a5fa" : "2px solid transparent",
     transition: "color 0.15s, border-color 0.15s",
   });
+
+  const tabs = [
+    { label: "CDMS Mapping", path: "/cdms"          },
+    { label: "Bank Mapping", path: "/bank"          },
+    { label: "Sales Targets",path: "/sales/targets" },
+    { label: "MTD Report",   path: "/sales/report"  },
+  ];
 
   return (
     <nav style={{
@@ -80,22 +90,23 @@ export default function Nav() {
 
           {/* Tabs */}
           <div style={{ display: "flex", alignItems: "stretch", height: "100%" }}>
-            <button
-              style={tabStyle(pathname.startsWith("/cdms"))}
-              onClick={() => router.push("/cdms")}
-              onMouseEnter={e => { if (!pathname.startsWith("/cdms")) (e.currentTarget as HTMLButtonElement).style.color = "#e2e8f0"; }}
-              onMouseLeave={e => { if (!pathname.startsWith("/cdms")) (e.currentTarget as HTMLButtonElement).style.color = "#94a3b8"; }}
-            >
-              CDMS Mapping
-            </button>
-            <button
-              style={tabStyle(pathname.startsWith("/bank"))}
-              onClick={() => router.push("/bank")}
-              onMouseEnter={e => { if (!pathname.startsWith("/bank")) (e.currentTarget as HTMLButtonElement).style.color = "#e2e8f0"; }}
-              onMouseLeave={e => { if (!pathname.startsWith("/bank")) (e.currentTarget as HTMLButtonElement).style.color = "#94a3b8"; }}
-            >
-              Bank Mapping
-            </button>
+            {tabs.map(tab => (
+              <button
+                key={tab.path}
+                style={tabStyle(pathname.startsWith(tab.path))}
+                onClick={() => router.push(tab.path)}
+                onMouseEnter={e => {
+                  if (!pathname.startsWith(tab.path))
+                    (e.currentTarget as HTMLButtonElement).style.color = "#e2e8f0";
+                }}
+                onMouseLeave={e => {
+                  if (!pathname.startsWith(tab.path))
+                    (e.currentTarget as HTMLButtonElement).style.color = "#94a3b8";
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
         </div>
 
