@@ -79,23 +79,25 @@ export async function GET() {
 
     let actualsRows: Record<string, unknown>[] = [];
     if (fromDate && toDate) {
+      // Select fc + brand (human names) — these are now the unique key
       actualsRows = await dbQuery(
-        `SELECT fc_code, brand_code, total_sum, synced_at
+        `SELECT fc, brand, total_sum, synced_at
          FROM sales_actuals WHERE from_date = ? AND to_date = ?`,
         [fromDate, toDate]
       );
     }
 
+    // Key: "fc::brand" — guaranteed unique, matches exactly one target row
     const actualsMap = new Map<string, number>();
     let latestSync   = "";
     for (const row of actualsRows) {
-      actualsMap.set(`${row.fc_code}::${row.brand_code}`, Number(row.total_sum ?? 0));
+      actualsMap.set(`${row.fc}::${row.brand}`, Number(row.total_sum ?? 0));
       if (!latestSync) latestSync = (row.synced_at as string) ?? "";
     }
 
-    // Detail rows
+    // Detail rows — each target row gets its own unique actuals value
     const rows: ReportRow[] = targets.map(t => {
-      const key         = `${t.lake_fc_code}::${t.lake_brd_code}`;
+      const key         = `${t.fc}::${t.brand}`;
       const mtdAchieved = Math.round(actualsMap.get(key) ?? 0);
       const mtdTarget   = Math.round((t.mtd_target as number) ?? 0);
       const salesTarget = (t.sales_target as number) ?? 0;
@@ -106,25 +108,29 @@ export async function GET() {
         location: (t.location as string) ?? "", fc: (t.fc as string) ?? "",
         asm: (t.asm as string) ?? "", brand: (t.brand as string) ?? "",
         salesTarget, mtdTarget, mtdAchieved, difference, diffPct,
-        lakeFcCode: (t.lake_fc_code as string) ?? "",
+        lakeFcCode:  (t.lake_fc_code  as string) ?? "",
         lakeBrdCode: (t.lake_brd_code as string) ?? "",
       };
     });
 
     // Brand summary — aggregate across all FCs
+    // Key by lowercased brand name to merge case variants (e.g. "NESTLE" + "Nestle")
     const brandMap = new Map<string, {
+      displayName: string;
       lakeBrdCode: string;
       salesTarget: number; mtdTarget: number; mtdAchieved: number;
       fcs: Set<string>;
     }>();
     for (const r of rows) {
-      if (!brandMap.has(r.brand)) {
-        brandMap.set(r.brand, {
+      const normKey = r.brand.trim().toLowerCase();
+      if (!brandMap.has(normKey)) {
+        brandMap.set(normKey, {
+          displayName: r.brand,
           lakeBrdCode: r.lakeBrdCode,
           salesTarget: 0, mtdTarget: 0, mtdAchieved: 0, fcs: new Set(),
         });
       }
-      const b = brandMap.get(r.brand)!;
+      const b = brandMap.get(normKey)!;
       b.salesTarget += r.salesTarget;
       b.mtdTarget   += r.mtdTarget;
       b.mtdAchieved += r.mtdAchieved;
@@ -132,14 +138,14 @@ export async function GET() {
     }
 
     const brandSummary: BrandSummaryRow[] = Array.from(brandMap.entries())
-      .map(([brand, b]) => {
+      .map(([, b]) => {
         const achievementPct = b.mtdTarget > 0
           ? parseFloat(((b.mtdAchieved / b.mtdTarget) * 100).toFixed(1)) : null;
         const difference = b.mtdAchieved - b.mtdTarget;
         const diffPct    = b.mtdTarget > 0
           ? parseFloat(((difference / b.mtdTarget) * 100).toFixed(2)) : null;
         return {
-          brand, lakeBrdCode: b.lakeBrdCode,
+          brand: b.displayName, lakeBrdCode: b.lakeBrdCode,
           salesTarget: b.salesTarget, mtdTarget: b.mtdTarget,
           mtdAchieved: b.mtdAchieved, achievementPct, difference, diffPct,
           status: achievementStatus(achievementPct), fcCount: b.fcs.size,

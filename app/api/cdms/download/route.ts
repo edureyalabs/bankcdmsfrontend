@@ -5,12 +5,24 @@ import { dbQuery } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-const DATE_STRIP = `CASE WHEN INSTR(Cashier_verification_date,' ')>0 THEN SUBSTR(Cashier_verification_date,1,INSTR(Cashier_verification_date,' ')-1) ELSE Cashier_verification_date END`;
-const DATE_ISO   = `CASE WHEN SUBSTR(d,5,1)='-' THEN SUBSTR(d,1,10) ELSE printf('%04d-%02d-%02d',CAST(SUBSTR(d,INSTR(d,'/')+1+INSTR(SUBSTR(d,INSTR(d,'/')+1),'/')) AS INTEGER),CAST(SUBSTR(d,1,INSTR(d,'/')-1) AS INTEGER),CAST(SUBSTR(SUBSTR(d,INSTR(d,'/')+1),1,INSTR(SUBSTR(d,INSTR(d,'/')+1),'/')-1) AS INTEGER)) END`;
-
-const BASE_CTE = `
-  WITH s1 AS (SELECT *, (${DATE_STRIP}) AS d FROM cdms_data),
-       dated AS (SELECT *, (${DATE_ISO}) AS cvd_iso FROM s1)
+// Normalises Cashier_verification_date to YYYY-MM-DD for range filtering.
+// Two possible formats: "YYYY-MM-DD HH:MM:SS" or "MM/DD/YYYY".
+// Detection: if char 5 is '-' it's ISO, otherwise MM/DD/YYYY.
+const CVD_ISO = `
+  CASE
+    WHEN SUBSTR(Cashier_verification_date, 5, 1) = '-'
+    THEN SUBSTR(Cashier_verification_date, 1, 10)
+    ELSE printf('%04d-%02d-%02d',
+      CAST(SUBSTR(Cashier_verification_date,
+        INSTR(Cashier_verification_date,'/')+
+        INSTR(SUBSTR(Cashier_verification_date,INSTR(Cashier_verification_date,'/')+1),'/')+1
+      ) AS INTEGER),
+      CAST(SUBSTR(Cashier_verification_date,1,INSTR(Cashier_verification_date,'/')-1) AS INTEGER),
+      CAST(SUBSTR(SUBSTR(Cashier_verification_date,INSTR(Cashier_verification_date,'/')+1),1,
+        INSTR(SUBSTR(Cashier_verification_date,INSTR(Cashier_verification_date,'/')+1),'/')-1
+      ) AS INTEGER)
+    )
+  END
 `;
 
 export async function GET(req: NextRequest) {
@@ -31,22 +43,20 @@ export async function GET(req: NextRequest) {
     addIn("Match_Status",   params.getAll("status"));
     addIn("Collected_Mode", params.getAll("mode"));
 
-    const account  = params.get("account")  || "";
     const invoice  = params.get("invoice")  || "";
     const ref      = params.get("ref")      || "";
     const dateFrom = params.get("dateFrom") || "";
     const dateTo   = params.get("dateTo")   || "";
 
-    if (account)  { where.push("Bank_Account = ?");      binds.push(account); }
     if (invoice)  { where.push("Invoice_Number LIKE ?"); binds.push(`%${invoice}%`); }
     if (ref)      { where.push("Reference_no LIKE ?");   binds.push(`%${ref}%`); }
-    if (dateFrom) { where.push("cvd_iso >= ?");          binds.push(dateFrom); }
-    if (dateTo)   { where.push("cvd_iso <= ?");          binds.push(dateTo); }
+    if (dateFrom) { where.push(`(${CVD_ISO}) >= ?`);     binds.push(dateFrom); }
+    if (dateTo)   { where.push(`(${CVD_ISO}) <= ?`);     binds.push(dateTo); }
 
     const W = where.length ? "WHERE " + where.join(" AND ") : "";
 
     const rawRows = await dbQuery(
-      `${BASE_CTE} SELECT * FROM dated ${W} ORDER BY id ASC`,
+      `SELECT * FROM cdms_data ${W} ORDER BY id ASC`,
       binds
     );
 

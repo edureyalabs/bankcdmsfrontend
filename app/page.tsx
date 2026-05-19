@@ -20,7 +20,7 @@ export default function LoginPage() {
       });
       const data = await res.json();
       if (res.ok && data.ok) {
-        router.push("/cdms");
+        router.push(data.pages?.[0] ?? "/cdms");
       } else {
         setError(data.error || "Invalid credentials");
       }
@@ -72,10 +72,10 @@ export default function LoginPage() {
             fontSize: "20px", fontWeight: 800, color: "#0f172a",
             letterSpacing: "-0.03em", margin: 0,
           }}>
-            Commercial<span style={{ color: "#2563eb" }}> Analytics</span>
+            Data<span style={{ color: "#2563eb" }}> Analytics</span>
           </h1>
           <p style={{ fontSize: "12px", color: "#64748b", fontWeight: 500, marginTop: "4px" }}>
-            CDMS · Collection Summary Dashboard
+            CDMS Mapping · Bank Mapping · Sales
           </p>
         </div>
 

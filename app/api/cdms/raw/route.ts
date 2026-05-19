@@ -5,10 +5,13 @@ import { dbQuery } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
+// Normalises Cashier_verification_date to YYYY-MM-DD for range filtering.
+// Two possible formats: "YYYY-MM-DD HH:MM:SS" or "MM/DD/YYYY".
+// Detection: if char 5 is '-' it's ISO, otherwise MM/DD/YYYY.
 const CVD_ISO = `
   CASE
-    WHEN SUBSTR(Cashier_verification_date,5,1) = '-'
-    THEN SUBSTR(Cashier_verification_date,1,10)
+    WHEN SUBSTR(Cashier_verification_date, 5, 1) = '-'
+    THEN SUBSTR(Cashier_verification_date, 1, 10)
     ELSE printf('%04d-%02d-%02d',
       CAST(SUBSTR(Cashier_verification_date,
         INSTR(Cashier_verification_date,'/')+
@@ -65,7 +68,7 @@ export async function GET(req: NextRequest) {
     const [countRows, rows] = await Promise.all([
       dbQuery(`SELECT COUNT(*) AS total FROM cdms_data ${W}`, binds),
       dbQuery(
-        `SELECT ${selectCols} FROM cdms_data ${W} ORDER BY FC, collected_date DESC LIMIT ? OFFSET ?`,
+        `SELECT ${selectCols} FROM cdms_data ${W} ORDER BY FC, (${CVD_ISO}) DESC LIMIT ? OFFSET ?`,
         [...binds, limit, offset]
       ),
     ]);

@@ -10,8 +10,8 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Commercial Analytics – CDMS",
-  description: "Collection Summary Dashboard",
+  title: "Data Analytics - Ripplr",
+  description: "CDMS - Bank - Sales",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

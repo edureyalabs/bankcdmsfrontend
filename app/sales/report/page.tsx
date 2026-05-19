@@ -28,9 +28,11 @@ const STATUS_STYLE: Record<string, { color: string; bg: string; border: string }
 };
 
 const PIE_COLORS = [
-  "#2563eb","#16a34a","#dc2626","#d97706","#7c3aed",
-  "#0891b2","#be185d","#65a30d","#ea580c","#6366f1",
-  "#0284c7","#15803d","#b45309","#9333ea","#e11d48",
+  "#2563eb","#dc2626","#16a34a","#d97706","#7c3aed",
+  "#0891b2","#be185d","#84cc16","#ea580c","#6366f1",
+  "#0d9488","#f43f5e","#3b82f6","#a16207","#10b981",
+  "#8b5cf6","#ef4444","#06b6d4","#f97316","#14b8a6",
+  "#ec4899","#22c55e","#6d28d9","#fb923c",
 ];
 
 const card: React.CSSProperties = {
@@ -211,7 +213,6 @@ export default function ReportPage() {
   const [histTo,     setHistTo]     = useState("");
   const [histFc,     setHistFc]     = useState("All");
   const [histBrand,  setHistBrand]  = useState("All");
-  const [pieGroup,   setPieGroup]   = useState<"brand" | "fc" | "asm">("brand");
 
   // Load MTD report
   useEffect(() => {
@@ -269,7 +270,8 @@ export default function ReportPage() {
 
   const visibleRows = (result?.rows ?? []).filter(r =>
     (filterLoc === "All" || r.location === filterLoc) &&
-    (filterAsm === "All" || r.asm === filterAsm)
+    (filterAsm === "All" || r.asm === filterAsm) &&
+    (r.salesTarget > 0 || r.mtdAchieved > 0)  // exclude rows where both target and achieved are 0
   );
 
   const totalMtdTarget   = visibleRows.reduce((s, r) => s + r.mtdTarget,   0);
@@ -278,7 +280,9 @@ export default function ReportPage() {
   const totalDiffPct     = totalMtdTarget !== 0 ? (totalDiff / totalMtdTarget) * 100 : null;
 
   // ── Sort hooks ─────────────────────────────────────────────────────────────
-  const brandSort  = useSort<BrandSummaryRow>(result?.brandSummary ?? []);
+  const brandSort  = useSort<BrandSummaryRow>(
+    (result?.brandSummary ?? []).filter(b => b.salesTarget > 0 || b.mtdAchieved > 0)
+  );
   const detailSort = useSort<ReportRow>(visibleRows);
 
   // ── History chart data ─────────────────────────────────────────────────────
@@ -307,20 +311,28 @@ export default function ReportPage() {
     };
   }, [history, histBrand]);
 
-  // Pie chart: total per group dimension
-  const pieData = useMemo(() => {
+  // Pie charts: brand and FC computed independently, always both shown
+  const brandPieData = useMemo(() => {
     const agg = new Map<string, number>();
     for (const r of history) {
-      let key = r.brand_code;
-      if (pieGroup === "fc") key = r.fc_code;
-      // ASM not in history table — use brand as proxy
-      agg.set(key, (agg.get(key) ?? 0) + Number(r.total_sum));
+      agg.set(r.brand_code, (agg.get(r.brand_code) ?? 0) + Number(r.total_sum));
     }
     return [...agg.entries()]
       .map(([name, value]) => ({ name, value: Math.round(value) }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 12);
-  }, [history, pieGroup]);
+  }, [history]);
+
+  const fcPieData = useMemo(() => {
+    const agg = new Map<string, number>();
+    for (const r of history) {
+      agg.set(r.fc_code, (agg.get(r.fc_code) ?? 0) + Number(r.total_sum));
+    }
+    return [...agg.entries()]
+      .map(([name, value]) => ({ name, value: Math.round(value) }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 12);
+  }, [history]);
 
   // ── RENDER ─────────────────────────────────────────────────────────────────
   if (loading) {
@@ -343,9 +355,7 @@ export default function ReportPage() {
           <h1 style={{ fontSize: "18px", fontWeight: 800, color: C.text1, letterSpacing: "-0.03em", margin: 0 }}>
             MTD Sales Report
           </h1>
-          <p style={{ fontSize: "11px", color: C.text3, marginTop: "2px", fontWeight: 500 }}>
-            Refresh: <code style={{ fontSize: "10px", background: "#f1f5f9", padding: "1px 5px", borderRadius: "4px" }}>sales_sync.py</code> → <code style={{ fontSize: "10px", background: "#f1f5f9", padding: "1px 5px", borderRadius: "4px" }}>sync_to_turso.py</code>
-          </p>
+
         </div>
         {result && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "3px" }}>
@@ -607,76 +617,98 @@ export default function ReportPage() {
           <div style={{
             padding: "10px 16px", background: C.sectionBg,
             borderBottom: `1.5px solid ${C.sectionBorder}`,
-            display: "flex", alignItems: "center", justifyContent: "space-between",
+            display: "flex", alignItems: "center",
           }}>
             <span style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: C.text2 }}>
               Revenue Share
             </span>
-            <div style={{ display: "flex", gap: "4px" }}>
-              {(["brand","fc"] as const).map(g => (
-                <button key={g} onClick={() => setPieGroup(g)} style={{
-                  fontSize: "10px", fontWeight: 700, padding: "3px 10px", borderRadius: "99px",
-                  border: `1.5px solid ${pieGroup === g ? C.blue : "#cbd5e1"}`,
-                  background: pieGroup === g ? "#dbeafe" : "#f8fafc",
-                  color: pieGroup === g ? C.blue : C.text3,
-                  cursor: "pointer",
-                }}>{g.toUpperCase()}</button>
-              ))}
-            </div>
           </div>
 
-          <div style={{ padding: "20px 24px", display: "flex", alignItems: "center", gap: "40px" }}>
-            {/* Donut */}
-            <div style={{ flexShrink: 0 }}>
-              <ResponsiveContainer width={300} height={300}>
-                <PieChart>
-                  <Pie data={pieData} dataKey="value" nameKey="name"
-                    cx="50%" cy="50%" innerRadius={80} outerRadius={130} paddingAngle={2}
-                  >
-                    {pieData.map((_, i) => (
-                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(v: unknown) => fmtRaw(Number(v))} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0" }}>
 
-            {/* Legend table */}
-            <div style={{ flex: 1 }}>
-              {/* Header row */}
-              <div style={{ display: "flex", gap: "8px", padding: "0 0 8px", borderBottom: `1px solid ${C.sectionBorder}`, marginBottom: "8px" }}>
-                <div style={{ flex: 1, fontSize: "10px", fontWeight: 700, color: C.text4, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                  {pieGroup === "brand" ? "Brand" : "FC"}
-                </div>
-                <div style={{ fontSize: "10px", fontWeight: 700, color: C.text4, textTransform: "uppercase", letterSpacing: "0.08em", minWidth: "80px", textAlign: "right" }}>Revenue</div>
-                <div style={{ fontSize: "10px", fontWeight: 700, color: C.text4, textTransform: "uppercase", letterSpacing: "0.08em", minWidth: "48px", textAlign: "right" }}>Share</div>
-              </div>
-              {/* Rows */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "7px", maxHeight: "260px", overflowY: "auto" }}>
-                {(() => {
-                  const total = pieData.reduce((s, d) => s + d.value, 0);
-                  return pieData.map((item, i) => {
-                    const pct = total > 0 ? ((item.value / total) * 100) : 0;
-                    return (
-                      <div key={item.name} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <div style={{ width: "10px", height: "10px", borderRadius: "50%", flexShrink: 0, background: PIE_COLORS[i % PIE_COLORS.length] }} />
-                        <div style={{ flex: 1, fontSize: "12px", color: C.text2, fontWeight: 500 }}>{item.name}</div>
-                        {/* Mini bar */}
-                        <div style={{ width: "100px", height: "5px", background: "#e2e8f0", borderRadius: "99px", overflow: "hidden" }}>
-                          <div style={{ width: `${pct}%`, height: "100%", background: PIE_COLORS[i % PIE_COLORS.length], borderRadius: "99px" }} />
-                        </div>
-                        <div style={{ fontSize: "12px", color: C.text2, fontWeight: 600, minWidth: "80px", textAlign: "right" }}>{fmtL(item.value)}</div>
-                        <div style={{ fontSize: "11px", color: C.text4, fontWeight: 700, minWidth: "44px", textAlign: "right" }}>{pct.toFixed(1)}%</div>
+            {/* ── Left: Brand pie ── */}
+            {[
+              { label: "By Brand", data: brandPieData },
+              { label: "By FC",    data: fcPieData    },
+            ].map(({ label, data }, panelIdx) => {
+              const total = data.reduce((s, d) => s + d.value, 0);
+              // Each panel uses its own offset into PIE_COLORS so colors never clash
+              const colorOffset = panelIdx * 12;
+              return (
+                <div
+                  key={label}
+                  style={{
+                    padding: "20px 24px",
+                    borderRight: panelIdx === 0 ? `1.5px solid ${C.sectionBorder}` : "none",
+                  }}
+                >
+                  {/* Panel title */}
+                  <div style={{ fontSize: "11px", fontWeight: 700, color: C.text3, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "16px" }}>
+                    {label}
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
+                    {/* Donut */}
+                    <div style={{ flexShrink: 0 }}>
+                      <ResponsiveContainer width={260} height={260}>
+                        <PieChart>
+                          <Pie data={data} dataKey="value" nameKey="name"
+                            cx="50%" cy="50%" innerRadius={70} outerRadius={115} paddingAngle={2}
+                          >
+                            {data.map((_, i) => (
+                              <Cell key={i} fill={PIE_COLORS[(colorOffset + i) % PIE_COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(v: unknown) => fmtRaw(Number(v))} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    {/* Legend */}
+                    <div style={{ flex: 1 }}>
+                      {/* Header */}
+                      <div style={{ display: "flex", gap: "8px", paddingBottom: "6px", borderBottom: `1px solid ${C.sectionBorder}`, marginBottom: "7px" }}>
+                        <div style={{ flex: 1, fontSize: "9px", fontWeight: 700, color: C.text4, textTransform: "uppercase", letterSpacing: "0.08em" }}>Name</div>
+                        <div style={{ fontSize: "9px", fontWeight: 700, color: C.text4, textTransform: "uppercase", letterSpacing: "0.08em", minWidth: "60px", textAlign: "right" }}>Revenue</div>
+                        <div style={{ fontSize: "9px", fontWeight: 700, color: C.text4, textTransform: "uppercase", letterSpacing: "0.08em", minWidth: "36px", textAlign: "right" }}>%</div>
                       </div>
-                    );
-                  });
-                })()}
-              </div>
-            </div>
+                      {/* Rows */}
+                      <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "260px", overflowY: "auto" }}>
+                        {data.map((item, i) => {
+                          const pct = total > 0 ? (item.value / total) * 100 : 0;
+                          const col = PIE_COLORS[(colorOffset + i) % PIE_COLORS.length];
+                          return (
+                            <div key={item.name} style={{ display: "flex", alignItems: "center", gap: "7px" }}>
+                              <div style={{ width: "8px", height: "8px", borderRadius: "50%", flexShrink: 0, background: col }} />
+                              <div style={{ flex: 1, fontSize: "11px", color: C.text2, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {item.name}
+                              </div>
+                              {/* Mini bar */}
+                              <div style={{ width: "50px", height: "4px", background: "#e2e8f0", borderRadius: "99px", overflow: "hidden", flexShrink: 0 }}>
+                                <div style={{ width: `${pct}%`, height: "100%", background: col, borderRadius: "99px" }} />
+                              </div>
+                              <div style={{ fontSize: "11px", color: C.text2, fontWeight: 600, minWidth: "60px", textAlign: "right", whiteSpace: "nowrap" }}>
+                                {fmtL(item.value)}
+                              </div>
+                              <div style={{ fontSize: "10px", color: C.text4, fontWeight: 700, minWidth: "36px", textAlign: "right" }}>
+                                {pct.toFixed(1)}%
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
           </div>
         </div>
       )}
+
+      {/* Bottom spacer so charts aren't flush against viewport bottom */}
+      <div style={{ height: "60px" }} />
 
     </div>
   );

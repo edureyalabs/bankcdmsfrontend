@@ -59,9 +59,7 @@ export default function TargetsPage() {
           <h1 style={{ fontSize: "20px", fontWeight: 800, color: C.text1, letterSpacing: "-0.03em", margin: 0 }}>
             Sales Targets
           </h1>
-          <p style={{ fontSize: "12px", color: C.text3, marginTop: "3px", fontWeight: 500 }}>
-            Read-only · Edit <code style={{ fontSize: "11px", background: "#f1f5f9", padding: "1px 5px", borderRadius: "4px" }}>v_sales_config.py</code> → run <code style={{ fontSize: "11px", background: "#f1f5f9", padding: "1px 5px", borderRadius: "4px" }}>sales_sync.py</code> → <code style={{ fontSize: "11px", background: "#f1f5f9", padding: "1px 5px", borderRadius: "4px" }}>sync_to_turso.py</code>
-          </p>
+
         </div>
         {!loading && !error && (
           <div style={{ fontSize: "12px", fontWeight: 700, color: C.text2, background: "#e2e8f0", padding: "4px 14px", borderRadius: "99px" }}>

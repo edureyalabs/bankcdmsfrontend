@@ -23,6 +23,8 @@ function makeLocalClient() {
   const DB_PATH =
     process.env.MATCHER_DB_PATH ||
     path.join(process.cwd(), "..", "cdms bank matcher", "output", "matcher.db");
+    
+    console.log("DB PATH:", DB_PATH);    
 
   if (!fs.existsSync(DB_PATH)) {
     throw new Error(

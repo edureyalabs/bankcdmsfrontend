@@ -1,19 +1,56 @@
+"use client";
 // FILE PATH: components/Nav.tsx — REPLACE EXISTING
 
-"use client";
-
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+
+const ALL_TABS = [
+  { label: "CDMS Mapping",      path: "/cdms"             },
+  { label: "Bank Mapping",      path: "/bank"             },
+  { label: "Sales Targets",     path: "/sales/targets"    },
+  { label: "MTD Report",        path: "/sales/report"     },
+  { label: "Command Centre",    path: "/sales/command"    },
+  { label: "Salesman Drill",    path: "/sales/salesman"   },
+];
+
+interface AuthInfo {
+  role:  string;
+  pages: string[];
+}
 
 export default function Nav() {
   const pathname = usePathname();
   const router   = useRouter();
 
+  const [authInfo, setAuthInfo] = useState<AuthInfo | null>(null);
+
   const isAuth =
-    pathname.startsWith("/cdms") ||
-    pathname.startsWith("/bank") ||
+    pathname.startsWith("/cdms")  ||
+    pathname.startsWith("/bank")  ||
     pathname.startsWith("/sales");
 
+  useEffect(() => {
+    if (!isAuth) return;
+    fetch("/api/auth/me")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => (d?.pages ? setAuthInfo(d) : setAuthInfo(null)))
+      .catch(() => setAuthInfo(null));
+  }, [isAuth]);
+
   if (!isAuth) return null;
+
+  const allowedPages = authInfo?.pages ?? null;
+  const role         = authInfo?.role  ?? "";
+
+  const visibleTabs = ALL_TABS.filter(tab =>
+    allowedPages === null
+      ? true
+      : allowedPages.some(p =>
+          tab.path === p ||
+          tab.path.startsWith(p + "/") ||
+          p.startsWith(tab.path)
+        )
+  );
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -36,12 +73,10 @@ export default function Nav() {
     transition: "color 0.15s, border-color 0.15s",
   });
 
-  const tabs = [
-    { label: "CDMS Mapping", path: "/cdms"          },
-    { label: "Bank Mapping", path: "/bank"          },
-    { label: "Sales Targets",path: "/sales/targets" },
-    { label: "MTD Report",   path: "/sales/report"  },
-  ];
+  const roleLabel = role
+    .split("_")
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 
   return (
     <nav style={{
@@ -60,13 +95,16 @@ export default function Nav() {
         alignItems: "center",
         justifyContent: "space-between",
       }}>
-        {/* Left: logo + title + tabs */}
+
+        {/* Left: brand + tabs */}
         <div style={{ display: "flex", alignItems: "center", height: "100%" }}>
+
           {/* Brand */}
           <div style={{ display: "flex", alignItems: "center", gap: "10px", marginRight: "24px" }}>
             <div style={{
               width: "28px", height: "28px", borderRadius: "7px",
-              background: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center",
+              background: "#2563eb",
+              display: "flex", alignItems: "center", justifyContent: "center",
             }}>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <rect x="2" y="2" width="5" height="5" rx="1" fill="white"/>
@@ -75,14 +113,11 @@ export default function Nav() {
                 <rect x="9" y="9" width="5" height="5" rx="1" fill="white"/>
               </svg>
             </div>
-            <span style={{ fontWeight: 800, fontSize: "15px", color: "#f8fafc", letterSpacing: "-0.02em" }}>
-              Commercial<span style={{ color: "#60a5fa" }}> Analytics</span>
-            </span>
             <span style={{
-              fontSize: "10px", fontWeight: 700, padding: "2px 8px", borderRadius: "99px",
-              background: "rgba(96,165,250,0.15)", color: "#93c5fd",
-              border: "1px solid rgba(96,165,250,0.25)", letterSpacing: "0.08em",
-            }}>CDMS</span>
+              fontWeight: 800, fontSize: "15px", color: "#f8fafc", letterSpacing: "-0.02em",
+            }}>
+              Data<span style={{ color: "#60a5fa" }}> Analytics</span>
+            </span>
           </div>
 
           {/* Divider */}
@@ -90,7 +125,7 @@ export default function Nav() {
 
           {/* Tabs */}
           <div style={{ display: "flex", alignItems: "stretch", height: "100%" }}>
-            {tabs.map(tab => (
+            {visibleTabs.map(tab => (
               <button
                 key={tab.path}
                 style={tabStyle(pathname.startsWith(tab.path))}
@@ -110,32 +145,47 @@ export default function Nav() {
           </div>
         </div>
 
-        {/* Right: sign out */}
-        <button
-          onClick={handleLogout}
-          style={{
-            background: "rgba(255,255,255,0.07)",
-            color: "#94a3b8",
-            border: "1px solid rgba(255,255,255,0.1)",
-            borderRadius: "7px",
-            padding: "5px 14px",
-            fontSize: "12px",
-            fontWeight: 600,
-            cursor: "pointer",
-            transition: "background 0.15s, color 0.15s",
-            letterSpacing: "0.01em",
-          }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.12)";
-            (e.currentTarget as HTMLButtonElement).style.color = "#f1f5f9";
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.07)";
-            (e.currentTarget as HTMLButtonElement).style.color = "#94a3b8";
-          }}
-        >
-          Sign out
-        </button>
+        {/* Right: role badge + sign out */}
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          {role && (
+            <span style={{
+              fontSize: "10px", fontWeight: 700,
+              padding: "3px 10px", borderRadius: "99px",
+              background: "rgba(96,165,250,0.1)", color: "#7dd3fc",
+              border: "1px solid rgba(96,165,250,0.2)",
+              letterSpacing: "0.06em", textTransform: "uppercase",
+            }}>
+              {roleLabel}
+            </span>
+          )}
+
+          <button
+            onClick={handleLogout}
+            style={{
+              background: "rgba(255,255,255,0.07)",
+              color: "#94a3b8",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: "7px",
+              padding: "5px 14px",
+              fontSize: "12px",
+              fontWeight: 600,
+              cursor: "pointer",
+              transition: "background 0.15s, color 0.15s",
+              letterSpacing: "0.01em",
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.12)";
+              (e.currentTarget as HTMLButtonElement).style.color = "#f1f5f9";
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.07)";
+              (e.currentTarget as HTMLButtonElement).style.color = "#94a3b8";
+            }}
+          >
+            Sign out
+          </button>
+        </div>
+
       </div>
     </nav>
   );

@@ -39,19 +39,55 @@ const card: React.CSSProperties = {
   boxShadow: "0 2px 6px rgba(15,23,42,0.07), 0 8px 24px rgba(15,23,42,0.04)", overflow: "hidden",
 };
 
-// ── Skeleton ──────────────────────────────────────────────────────────────────
-function SkeletonRows() {
+// ── Shimmer keyframe (injected once) ─────────────────────────────────────────
+const SHIMMER_STYLE_ID = "cdms-shimmer-style";
+function ensureShimmerStyle() {
+  if (typeof document === "undefined") return;
+  if (document.getElementById(SHIMMER_STYLE_ID)) return;
+  const el = document.createElement("style");
+  el.id = SHIMMER_STYLE_ID;
+  el.textContent = `
+    @keyframes cdms-shimmer {
+      0%   { background-position: -600px 0; }
+      100% { background-position:  600px 0; }
+    }
+    .cdms-shimmer-bar {
+      border-radius: 4px;
+      background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+      background-size: 600px 100%;
+      animation: cdms-shimmer 1.4s ease-in-out infinite;
+    }
+    @keyframes cdms-spin {
+      to { transform: rotate(360deg); }
+    }
+    .cdms-spin { animation: cdms-spin 0.75s linear infinite; }
+  `;
+  document.head.appendChild(el);
+}
+
+// ── Shimmer Skeleton ──────────────────────────────────────────────────────────
+function ShimmerRows() {
+  useEffect(() => { ensureShimmerStyle(); }, []);
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
       {Array.from({ length: 10 }).map((_, i) => (
-        <div key={i} style={{ display: "flex", alignItems: "center", padding: "10px 14px", borderBottom: `1px solid ${C.sectionBorder}`, background: i % 2 === 0 ? C.rowOdd : C.rowEven }}>
+        <div
+          key={i}
+          style={{
+            display: "flex", alignItems: "center", padding: "10px 14px",
+            borderBottom: `1px solid ${C.sectionBorder}`,
+            background: i % 2 === 0 ? C.rowOdd : C.rowEven,
+          }}
+        >
+          {/* dimension cell */}
           <div style={{ flex: "0 0 160px" }}>
-            <div style={{ width: `${60 + (i * 17) % 60}px`, height: "12px", borderRadius: "4px", background: "#e2e8f0" }} />
+            <div className="cdms-shimmer-bar" style={{ width: `${60 + (i * 17) % 60}px`, height: "12px" }} />
           </div>
+          {/* 4 value cells */}
           {[0, 1, 2, 3].map(j => (
             <div key={j} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "5px" }}>
-              <div style={{ width: `${55 + ((i + j) * 11) % 40}px`, height: "12px", borderRadius: "4px", background: "#e2e8f0" }} />
-              <div style={{ width: "38px", height: "9px", borderRadius: "4px", background: "#f1f5f9" }} />
+              <div className="cdms-shimmer-bar" style={{ width: `${55 + ((i + j) * 11) % 40}px`, height: "12px" }} />
+              <div className="cdms-shimmer-bar" style={{ width: "38px", height: "9px", opacity: 0.5 }} />
             </div>
           ))}
         </div>
@@ -114,7 +150,7 @@ function PivotTable({ label, dimLabel, rows, totals, formatKey, loading }: {
         </tr></thead></table>
       </div>
       <div style={{ overflowY: "auto", flex: 1 }}>
-        {loading ? <SkeletonRows /> : rows.length === 0
+        {loading ? <ShimmerRows /> : rows.length === 0
           ? <div style={{ textAlign: "center", padding: "48px 0", color: C.text4, fontSize: "13px" }}>No data</div>
           : <table style={{ width: "100%", borderCollapse: "collapse" }}><tbody>
               {rows.map((row, i) => {
@@ -164,6 +200,74 @@ const CDMS_COLS: ColDef[] = [
   { key: "Match_Remark",              label: "Remark",    wide: true },
 ];
 
+// ── Download button with loading state ───────────────────────────────────────
+function DownloadButton({ qs }: { qs: string }) {
+  const [downloading, setDownloading] = useState(false);
+
+  useEffect(() => { ensureShimmerStyle(); }, []);
+
+  const handleDownload = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      const url = "/api/cdms/download" + (qs ? "?" + qs : "");
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Download failed");
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "cdms_export.csv";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleDownload}
+      disabled={downloading}
+      style={{
+        display: "inline-flex", alignItems: "center", gap: "7px",
+        background: downloading ? "#475569" : C.blue,
+        color: "#fff", border: "none", borderRadius: "7px",
+        padding: "7px 18px", fontSize: "12px", fontWeight: 700,
+        cursor: downloading ? "not-allowed" : "pointer",
+        boxShadow: downloading ? "none" : "0 2px 6px rgba(29,78,216,0.28)",
+        transition: "background 0.2s, box-shadow 0.2s",
+        opacity: downloading ? 0.85 : 1,
+      }}
+    >
+      {downloading ? (
+        <>
+          {/* spinner ring */}
+          <svg
+            className="cdms-spin"
+            width="13" height="13" viewBox="0 0 13 13"
+            fill="none" xmlns="http://www.w3.org/2000/svg"
+            style={{ flexShrink: 0 }}
+          >
+            <circle cx="6.5" cy="6.5" r="5.5" stroke="rgba(255,255,255,0.3)" strokeWidth="2" />
+            <path d="M6.5 1A5.5 5.5 0 0 1 12 6.5" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+          Downloading…
+        </>
+      ) : (
+        <>
+          {/* download icon */}
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+            <path d="M6.5 1v7M3.5 5.5l3 3 3-3M1 10.5h11" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Download CSV
+        </>
+      )}
+    </button>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function SummaryPage() {
   const router = useRouter();
@@ -171,12 +275,6 @@ export default function SummaryPage() {
 
   useEffect(() => { ensureCdms(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (cdmsError === "Unauthorized") router.push("/"); }, [cdmsError, router]);
-
-  const handleDownload = () => {
-    const a = document.createElement("a");
-    a.href = "/api/cdms/download" + (cdmsQS ? "?" + cdmsQS : "");
-    a.download = "cdms_export.csv"; a.click();
-  };
 
   const opts = cdmsData?.filter_opts;
   const activeCount = cdmsFilters.fc.length + cdmsFilters.brand.length + cdmsFilters.status.length + cdmsFilters.mode.length
@@ -233,7 +331,7 @@ export default function SummaryPage() {
         <PivotTable label="By Month" dimLabel="Month" rows={cdmsData?.by_month ?? []} totals={cdmsData?.totals ?? EMPTY_TOTALS} formatKey={fmtMonth} loading={cdmsLoading} />
       </div>
 
-      <RawTable endpoint="/api/cdms/raw" qs={cdmsQS} cols={CDMS_COLS} onDownload={handleDownload} />
+      <RawTable endpoint="/api/cdms/raw" qs={cdmsQS} cols={CDMS_COLS} onDownload={<DownloadButton qs={cdmsQS} />} />
     </div>
   );
 }
