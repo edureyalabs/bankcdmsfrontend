@@ -5,12 +5,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const ALL_TABS = [
-  { label: "CDMS Mapping",      path: "/cdms"             },
-  { label: "Bank Mapping",      path: "/bank"             },
-  { label: "Sales Targets",     path: "/sales/targets"    },
-  { label: "MTD Report",        path: "/sales/report"     },
-  { label: "Command Centre",    path: "/sales/command"    },
-  { label: "Salesman Drill",    path: "/sales/salesman"   },
+  { label: "CDMS Mapping",      path: "/cdms"               },
+  { label: "Bank Mapping",      path: "/bank"               },
+  { label: "Cheque Clearance",  path: "/cheque-clearance"   },
+  { label: "Sales Targets",     path: "/sales/targets"      },
+  { label: "MTD Report",        path: "/sales/report"       },
+  { label: "Command Centre",    path: "/sales/command"      },
+  { label: "Salesman Drill",    path: "/sales/salesman"     },
 ];
 
 interface AuthInfo {
@@ -25,9 +26,10 @@ export default function Nav() {
   const [authInfo, setAuthInfo] = useState<AuthInfo | null>(null);
 
   const isAuth =
-    pathname.startsWith("/cdms")  ||
-    pathname.startsWith("/bank")  ||
-    pathname.startsWith("/sales");
+    pathname.startsWith("/cdms")             ||
+    pathname.startsWith("/bank")             ||
+    pathname.startsWith("/sales")            ||
+    pathname.startsWith("/cheque-clearance");
 
   useEffect(() => {
     if (!isAuth) return;

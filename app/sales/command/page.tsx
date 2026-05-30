@@ -12,8 +12,22 @@ import type { ReportRow }       from "./ReportDetailTable";
 import type { BrandSummaryRow } from "./BrandSummaryTable";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+interface CommandBrandSummaryRow {
+  brand:           string;
+  lake_brd_code:   string;
+  sales_target:    number;
+  mtd_target:      number;
+  mtd_achieved:    number;
+  achievement_pct: number | null;
+  difference:      number;
+  diff_pct:        number | null;
+  status:          string;
+  fc_count:        number;
+}
+
 interface CommandData {
   fc_cards:             FcCard[];
+  brand_summary:        CommandBrandSummaryRow[];
   kpi:                  KpiStripData;
   from_date:            string;
   to_date:              string;
@@ -26,7 +40,6 @@ interface CommandData {
 
 interface ReportData {
   rows:               ReportRow[];
-  brandSummary:       BrandSummaryRow[];
   fromDate:           string;
   toDate:             string;
   syncedAt:           string;
@@ -60,6 +73,22 @@ const inputStyle: React.CSSProperties = {
   boxShadow: "0 1px 3px rgba(15,23,42,0.06)", outline: "none",
   minWidth: "130px",
 };
+
+// ── Mapper: command API snake_case → BrandSummaryTable camelCase ──────────────
+function mapBrandSummary(rows: CommandBrandSummaryRow[]): BrandSummaryRow[] {
+  return rows.map(r => ({
+    brand:          r.brand,
+    lakeBrdCode:    r.lake_brd_code,
+    salesTarget:    r.sales_target,
+    mtdTarget:      r.mtd_target,
+    mtdAchieved:    r.mtd_achieved,
+    achievementPct: r.achievement_pct,
+    difference:     r.difference,
+    diffPct:        r.diff_pct,
+    status:         r.status as BrandSummaryRow["status"],
+    fcCount:        r.fc_count,
+  }));
+}
 
 // ── MultiSelect ───────────────────────────────────────────────────────────────
 function MultiSelect({
@@ -200,6 +229,10 @@ export default function CommandPage() {
   const fcCards     = cmdData?.fc_cards ?? [];
   const activeCount = selLocs.length + selBrands.length + selFcs.length;
 
+  const brandSummaryRows: BrandSummaryRow[] = cmdData?.brand_summary
+    ? mapBrandSummary(cmdData.brand_summary)
+    : [];
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
 
@@ -251,6 +284,15 @@ export default function CommandPage() {
             syncedAt={cmdData.synced_at}
           />
 
+          {/* ── Brand Performance — MTD ───────────────────────────────────── */}
+          <div>
+            <SectionHeading
+              title="Brand Performance — MTD"
+              sub="Achievement vs prorated target · all FCs aggregated"
+            />
+            <BrandSummaryTable rows={brandSummaryRows} />
+          </div>
+
           {/* ── FC Cards ─────────────────────────────────────────────────── */}
           <div>
             <SectionHeading
@@ -270,7 +312,7 @@ export default function CommandPage() {
         </>
       )}
 
-      {/* ── Report tables — always full data, no filter dependency ───────── */}
+      {/* ── Report table — FC · Brand Detail, always full data ───────────── */}
       {rptError && (
         <div style={{ background: C.redBg, border: `1.5px solid ${C.redBorder}`, borderRadius: "10px", padding: "14px 18px", fontSize: "13px", fontWeight: 600, color: C.red }}>
           {rptError}
@@ -284,30 +326,18 @@ export default function CommandPage() {
       )}
 
       {!rptLoading && !rptError && rptData && (
-        <>
-          {/* Brand Summary */}
-          <div>
-            <SectionHeading
-              title="Brand Performance — MTD"
-              sub="Achievement vs prorated target · all FCs aggregated"
-            />
-            <BrandSummaryTable rows={rptData.brandSummary} />
-          </div>
-
-          {/* FC · Brand Detail */}
-          <div>
-            <SectionHeading
-              title="FC · Brand Detail — MTD"
-              sub="Every target row · click column headers to sort"
-            />
-            <ReportDetailTable
-              rows={rptData.rows}
-              syncedAt={rptData.syncedAt}
-              fromDate={rptData.fromDate}
-              toDate={rptData.toDate}
-            />
-          </div>
-        </>
+        <div>
+          <SectionHeading
+            title="FC · Brand Detail — MTD"
+            sub="Every target row · click column headers to sort"
+          />
+          <ReportDetailTable
+            rows={rptData.rows}
+            syncedAt={rptData.syncedAt}
+            fromDate={rptData.fromDate}
+            toDate={rptData.toDate}
+          />
+        </div>
       )}
 
     </div>

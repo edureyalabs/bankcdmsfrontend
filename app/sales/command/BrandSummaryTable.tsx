@@ -39,7 +39,7 @@ const card: React.CSSProperties = {
 const fmtRaw = (n: number) => "₹" + Math.round(n).toLocaleString("en-IN");
 const fmtAbs = (n: number) => "₹" + Math.abs(Math.round(n)).toLocaleString("en-IN");
 
-// ── Status styles (same as report page) ───────────────────────────────────────
+// ── Status styles ─────────────────────────────────────────────────────────────
 const STATUS_STYLE: Record<string, { color: string; bg: string; border: string }> = {
   "On track":  { color: C.green, bg: "#dcfce7", border: "#86efac" },
   "At risk":   { color: C.amber, bg: "#fef3c7", border: "#fcd34d" },
@@ -130,12 +130,24 @@ function ProgressBar({ pct, status }: { pct: number | null; status: string }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export function BrandSummaryTable({ rows }: { rows: BrandSummaryRow[] }) {
-  const { sorted, toggle, indicator } = useSort(rows);
+  // Filter out brands with no target and zero actuals — universally applied
+  const activeRows = useMemo(
+    () => rows.filter(r => r.salesTarget > 0 || r.mtdAchieved > 0),
+    [rows]
+  );
 
-  const grandTarget   = rows.reduce((s, r) => s + r.salesTarget,  0);
-  const grandMtdTgt   = rows.reduce((s, r) => s + r.mtdTarget,    0);
-  const grandAchieved = rows.reduce((s, r) => s + r.mtdAchieved,  0);
+  const { sorted, toggle, indicator } = useSort(activeRows);
+
+  // Totals computed from activeRows only
+  const grandTarget   = activeRows.reduce((s, r) => s + r.salesTarget,  0);
+  const grandMtdTgt   = activeRows.reduce((s, r) => s + r.mtdTarget,    0);
+  const grandAchieved = activeRows.reduce((s, r) => s + r.mtdAchieved,  0);
   const grandDiff     = grandAchieved - grandMtdTgt;
+
+  const tfootTdBase: React.CSSProperties = {
+    position: "sticky", bottom: 0, zIndex: 5,
+    background: C.sectionBg,
+  };
 
   return (
     <div style={card}>
@@ -149,11 +161,11 @@ export function BrandSummaryTable({ rows }: { rows: BrandSummaryRow[] }) {
           Brand Summary — MTD
         </span>
         <span style={{ fontSize: "11px", color: C.text4, fontWeight: 500 }}>
-          {rows.length} brand{rows.length !== 1 ? "s" : ""} · all FCs aggregated
+          {activeRows.length} brand{activeRows.length !== 1 ? "s" : ""} · all FCs aggregated
         </span>
       </div>
 
-      <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "440px" }}>
+      <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "400px" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "820px" }}>
           <thead>
             <tr>
@@ -204,15 +216,16 @@ export function BrandSummaryTable({ rows }: { rows: BrandSummaryRow[] }) {
             })}
           </tbody>
           <tfoot>
-            <tr style={{ background: C.sectionBg, borderTop: `2px solid ${C.cardBorder}` }}>
-              <td style={{ padding: "9px 12px", fontSize: "11px", fontWeight: 700, color: C.text3, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+            <tr style={{ borderTop: `2px solid ${C.cardBorder}` }}>
+              <td style={{ ...tfootTdBase, padding: "9px 12px", fontSize: "11px", fontWeight: 700, color: C.text3, textTransform: "uppercase", letterSpacing: "0.08em" }}>
                 Total
               </td>
-              <td />
-              <td style={{ padding: "9px 12px", textAlign: "right", fontSize: "12px", fontWeight: 800, color: C.text1 }}>{fmtRaw(grandTarget)}</td>
-              <td style={{ padding: "9px 12px", textAlign: "right", fontSize: "12px", fontWeight: 800, color: C.text1 }}>{fmtRaw(grandMtdTgt)}</td>
-              <td style={{ padding: "9px 12px", textAlign: "right", fontSize: "13px", fontWeight: 800, color: C.text1 }}>{fmtRaw(grandAchieved)}</td>
+              <td style={{ ...tfootTdBase }} />
+              <td style={{ ...tfootTdBase, padding: "9px 12px", textAlign: "right", fontSize: "12px", fontWeight: 800, color: C.text1 }}>{fmtRaw(grandTarget)}</td>
+              <td style={{ ...tfootTdBase, padding: "9px 12px", textAlign: "right", fontSize: "12px", fontWeight: 800, color: C.text1 }}>{fmtRaw(grandMtdTgt)}</td>
+              <td style={{ ...tfootTdBase, padding: "9px 12px", textAlign: "right", fontSize: "13px", fontWeight: 800, color: C.text1 }}>{fmtRaw(grandAchieved)}</td>
               <td style={{
+                ...tfootTdBase,
                 padding: "9px 12px", textAlign: "right",
                 background: grandDiff >= 0 ? "#f0fdf4" : "#fef2f2",
               }}>
@@ -220,7 +233,7 @@ export function BrandSummaryTable({ rows }: { rows: BrandSummaryRow[] }) {
                   {grandDiff >= 0 ? "▲" : "▼"} {fmtAbs(grandDiff)}
                 </span>
               </td>
-              <td colSpan={2} />
+              <td style={{ ...tfootTdBase }} colSpan={2} />
             </tr>
           </tfoot>
         </table>
