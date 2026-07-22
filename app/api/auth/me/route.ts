@@ -4,16 +4,13 @@ import { NextRequest, NextResponse } from "next/server";
 
 const ROLE_PAGES: Record<string, string[]> = {
   admin: [
-    "/cdms", "/bank",
-    "/sales/targets", "/sales/report", "/sales/command", "/sales/salesman",
-    "/cheque-clearance",
+    "/cdms", "/bank","/brand-vs-cdms","/gst-checker"
   ],
   commercial_executive: [
     "/cdms", "/bank",
-    "/cheque-clearance",
   ],
   venkatesh: [
-    "/sales/report", "/sales/targets", "/sales/command", "/sales/salesman",
+    "/cdms", "/bank",
   ],
 };
 

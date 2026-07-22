@@ -32,16 +32,22 @@ export const CDMS_EMPTY: CdmsFilters = {
   fc: [], brand: [], status: [], mode: [], ref: "", invoice: "", dateFrom: "", dateTo: "",
 };
 
-export interface BankFilterOpts { account: string[]; fc: string[]; brand: string[]; narrType: string[]; status: string[]; }
+export interface BankFilterOpts {
+  account: string[]; fc: string[]; brand: string[];
+  narrType: string[]; status: string[]; rowCategory: string[];
+}
 export interface BankSummaryData {
-  by_account: PivotRow[]; by_month: PivotRow[]; totals: Totals; filter_opts: BankFilterOpts;
+  by_account: PivotRow[]; by_month: PivotRow[]; totals: Totals;
+  filter_opts: BankFilterOpts;
 }
 export type BankFilters = {
-  account: string[]; status: string[]; fc: string[]; brand: string[]; narrType: string[];
+  account: string[]; status: string[]; fc: string[]; brand: string[];
+  narrType: string[]; rowCategory: string[];
   ref: string; dateFrom: string; dateTo: string;
 };
 export const BANK_EMPTY: BankFilters = {
-  account: [], status: [], fc: [], brand: [], narrType: [], ref: "", dateFrom: "", dateTo: "",
+  account: [], status: [], fc: [], brand: [], narrType: [], rowCategory: [],
+  ref: "", dateFrom: "", dateTo: "",
 };
 
 // ── QS builders ───────────────────────────────────────────────────────────────
@@ -61,11 +67,12 @@ export function buildCdmsQS(f: CdmsFilters): string {
 
 export function buildBankQS(f: BankFilters): string {
   const p = new URLSearchParams();
-  f.account.forEach(v  => p.append("account",  v));
-  f.status.forEach(v   => p.append("status",   v));
-  f.fc.forEach(v       => p.append("fc",       v));
-  f.brand.forEach(v    => p.append("brand",    v));
-  f.narrType.forEach(v => p.append("narrType", v));
+  f.account.forEach(v     => p.append("account",     v));
+  f.status.forEach(v      => p.append("status",      v));
+  f.fc.forEach(v          => p.append("fc",          v));
+  f.brand.forEach(v       => p.append("brand",       v));
+  f.narrType.forEach(v    => p.append("narrType",    v));
+  f.rowCategory.forEach(v => p.append("rowCategory", v));
   if (f.ref)      p.set("ref",      f.ref);
   if (f.dateFrom) p.set("dateFrom", f.dateFrom);
   if (f.dateTo)   p.set("dateTo",   f.dateTo);
@@ -126,11 +133,12 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       .then((d: CdmsSummaryData & { error?: string }) => {
         if (d.error) { setCdmsError(d.error); } else { setCdmsData(d); }
         setCdmsLoading(false);
+        cdmsFetching.current = false; // reset so next mount re-fetches fresh data
       })
       .catch((e: unknown) => {
         setCdmsError(e instanceof Error ? e.message : String(e));
         setCdmsLoading(false);
-        cdmsFetching.current = false; // allow retry on hard error
+        cdmsFetching.current = false;
       });
   }, []);
 
@@ -143,7 +151,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const applycdms = useCallback(() => {
     const next = { ...cdmsDraft };
     setCdmsFilters(next);
-    invalidateRawCache("/api/cdms/raw"); // clear raw cache for new filters
+    invalidateRawCache("/api/cdms/raw");
     fetchCdms(next);
   }, [cdmsDraft, fetchCdms]);
 
@@ -176,6 +184,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       .then((d: BankSummaryData & { error?: string }) => {
         if (d.error) { setBankError(d.error); } else { setBankData(d); }
         setBankLoading(false);
+        bankFetching.current = false; // reset so next mount re-fetches fresh data
       })
       .catch((e: unknown) => {
         setBankError(e instanceof Error ? e.message : String(e));

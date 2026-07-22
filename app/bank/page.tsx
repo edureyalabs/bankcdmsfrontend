@@ -33,6 +33,7 @@ const C = {
   total: "#0f172a", totalHeader: "#f8fafc",
   text1: "#0f172a", text2: "#1e293b", text3: "#475569", text4: "#94a3b8",
   blue: "#1d4ed8", blueMid: "#2563eb", blueLight: "#dbeafe", blueBorder: "#93c5fd",
+  purple: "#6d28d9", purpleLight: "#ede9fe", purpleBorder: "#c4b5fd",
 };
 const card: React.CSSProperties = {
   background: C.cardBg, border: `1.5px solid ${C.cardBorder}`, borderRadius: "12px",
@@ -128,6 +129,31 @@ function MultiSelect({ label, options, selected, onChange }: {
   );
 }
 
+// ── Excluded Totals Banner ────────────────────────────────────────────────────
+function ExcludedBanner({ excludedTotals, loading }: {
+  excludedTotals: { total?: number; total_count?: number } | null;
+  loading?: boolean;
+}) {
+  if (loading || !excludedTotals || !excludedTotals.total_count) return null;
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: "12px",
+      background: C.purpleLight, border: `1.5px solid ${C.purpleBorder}`,
+      borderRadius: "10px", padding: "10px 16px",
+    }}>
+      <span style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: C.purple }}>
+        Excluded Rows
+      </span>
+      <span style={{ fontSize: "13px", fontWeight: 700, color: C.purple, fontVariantNumeric: "tabular-nums" }}>
+        {fmt(excludedTotals.total ?? 0)}
+      </span>
+      <span style={{ fontSize: "11px", color: C.purple, opacity: 0.7 }}>
+        ({fmtCount(excludedTotals.total_count ?? 0)} rows — BLKIFT, CASH, NACH, INTEREST, IB_FUNDS and non-Distribution entries)
+      </span>
+    </div>
+  );
+}
+
 // ── Pivot Table ───────────────────────────────────────────────────────────────
 function PivotTable({ label, dimLabel, rows, totals, formatKey, loading }: {
   label: string; dimLabel: string; rows: PivotRow[]; totals: Totals; formatKey: (k: string) => string; loading?: boolean;
@@ -184,6 +210,7 @@ const BANK_COLS: ColDef[] = [
   { key: "Bank_Account",     label: "Bank Account" },
   { key: "Date",             label: "Date" },
   { key: "Match_Status",     label: "Status" },
+  { key: "Row_Category",     label: "Category" },
   { key: "FC",               label: "FC" },
   { key: "Brand",            label: "Brand" },
   { key: "Narration_Type",   label: "Narr Type" },
@@ -269,7 +296,7 @@ export default function BankPage() {
 
   const opts = bankData?.filter_opts;
   const activeCount = bankFilters.account.length + bankFilters.status.length + bankFilters.fc.length
-    + bankFilters.brand.length + bankFilters.narrType.length
+    + bankFilters.brand.length + bankFilters.narrType.length + bankFilters.rowCategory.length
     + (bankFilters.ref ? 1 : 0) + (bankFilters.dateFrom ? 1 : 0) + (bankFilters.dateTo ? 1 : 0);
 
   const inputStyle: React.CSSProperties = { background: "#fff", border: "1.5px solid #94a3b8", borderRadius: "7px", padding: "6px 10px", fontSize: "12px", fontWeight: 500, color: C.text1, boxShadow: "0 1px 3px rgba(15,23,42,0.06)", outline: "none" };
@@ -298,16 +325,19 @@ export default function BankPage() {
         </p>
       </div>
 
+
+
       <div style={{ ...card, overflow: "visible", padding: "14px 16px" }}>
         <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", alignItems: "flex-end" }}>
-          <MultiSelect label="Bank Account" options={opts?.account  ?? []} selected={bankDraft.account}  onChange={v => setBankDraft({ ...bankDraft, account: v })} />
-          <MultiSelect label="Match Status" options={opts?.status   ?? ["Full Match","Partial Match","Unmatched"]} selected={bankDraft.status}   onChange={v => setBankDraft({ ...bankDraft, status: v })} />
-          <MultiSelect label="FC"           options={opts?.fc       ?? []} selected={bankDraft.fc}       onChange={v => setBankDraft({ ...bankDraft, fc: v })} />
-          <MultiSelect label="Brand"        options={opts?.brand    ?? []} selected={bankDraft.brand}    onChange={v => setBankDraft({ ...bankDraft, brand: v })} />
-          <MultiSelect label="Narr Type"    options={opts?.narrType ?? []} selected={bankDraft.narrType} onChange={v => setBankDraft({ ...bankDraft, narrType: v })} />
-          {inp("ref",      "Narration Search", "Search…")}
-          {inp("dateFrom", "Date From",        "", "date")}
-          {inp("dateTo",   "Date To",          "", "date")}
+          <MultiSelect label="Bank Account"  options={opts?.account     ?? []} selected={bankDraft.account}     onChange={v => setBankDraft({ ...bankDraft, account: v })} />
+          <MultiSelect label="Match Status"  options={opts?.status      ?? ["Full Match","Partial Match","Unmatched"]} selected={bankDraft.status}   onChange={v => setBankDraft({ ...bankDraft, status: v })} />
+          <MultiSelect label="Row Category"  options={opts?.rowCategory ?? ["Distribution","Excluded"]} selected={bankDraft.rowCategory} onChange={v => setBankDraft({ ...bankDraft, rowCategory: v })} />
+          <MultiSelect label="FC"            options={opts?.fc          ?? []} selected={bankDraft.fc}          onChange={v => setBankDraft({ ...bankDraft, fc: v })} />
+          <MultiSelect label="Brand"         options={opts?.brand       ?? []} selected={bankDraft.brand}       onChange={v => setBankDraft({ ...bankDraft, brand: v })} />
+          <MultiSelect label="Narr Type"     options={opts?.narrType    ?? []} selected={bankDraft.narrType}    onChange={v => setBankDraft({ ...bankDraft, narrType: v })} />
+          {inp("ref",      "Extracted Ref Search", "Search ref…")}
+          {inp("dateFrom", "Date From",             "", "date")}
+          {inp("dateTo",   "Date To",               "", "date")}
           <div style={{ display: "flex", flexDirection: "column" }}>
             <label style={{ ...labelStyle, visibility: "hidden" }}>·</label>
             <div style={{ display: "flex", gap: "6px" }}>

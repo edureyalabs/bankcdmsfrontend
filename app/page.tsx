@@ -1,4 +1,7 @@
+// app/page.tsx
+
 "use client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -6,12 +9,16 @@ export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError]       = useState("");
-  const [loading, setLoading]   = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = async () => {
-    setError("");
+  async function handleLogin() {
+    if (!username || !password) {
+      setError("Please enter both username and password");
+      return;
+    }
     setLoading(true);
+    setError("");
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
@@ -19,159 +26,238 @@ export default function LoginPage() {
         body: JSON.stringify({ username, password }),
       });
       const data = await res.json();
-      if (res.ok && data.ok) {
-        router.push(data.pages?.[0] ?? "/cdms");
-      } else {
+      if (!res.ok) {
         setError(data.error || "Invalid credentials");
+        return;
       }
+      router.push(data.pages?.[0] ?? "/cdms");
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter") handleLogin();
-  };
+  }
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "#f1f5f9",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "20px",
-    }}>
-      <div style={{
-        width: "100%",
-        maxWidth: "380px",
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
         display: "flex",
-        flexDirection: "column",
-        gap: "24px",
-      }}>
-
-        {/* Logo + brand */}
-        <div style={{ textAlign: "center" }}>
-          <div style={{
-            width: "48px", height: "48px", borderRadius: "14px",
-            background: "#2563eb",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            margin: "0 auto 12px",
-            boxShadow: "0 4px 16px rgba(37,99,235,0.35)",
-          }}>
-            <svg width="26" height="26" viewBox="0 0 16 16" fill="none">
-              <rect x="2" y="2" width="5" height="5" rx="1" fill="white"/>
-              <rect x="9" y="2" width="5" height="5" rx="1" fill="white" opacity="0.5"/>
-              <rect x="2" y="9" width="5" height="5" rx="1" fill="white" opacity="0.5"/>
-              <rect x="9" y="9" width="5" height="5" rx="1" fill="white"/>
-            </svg>
-          </div>
-          <h1 style={{
-            fontSize: "20px", fontWeight: 800, color: "#0f172a",
-            letterSpacing: "-0.03em", margin: 0,
-          }}>
-            Data<span style={{ color: "#2563eb" }}> Analytics</span>
-          </h1>
-          <p style={{ fontSize: "12px", color: "#64748b", fontWeight: 500, marginTop: "4px" }}>
-            CDMS Mapping · Bank Mapping · Sales
-          </p>
-        </div>
-
-        {/* Card */}
-        <div style={{
-          background: "#ffffff",
-          border: "1.5px solid #cbd5e1",
-          borderRadius: "14px",
-          boxShadow: "0 4px 16px rgba(15,23,42,0.08), 0 1px 3px rgba(15,23,42,0.06)",
-          padding: "28px 28px 24px",
+        fontFamily: "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif",
+      }}
+    >
+      {/* ── Left panel — 58% ───────────────────────────────────── */}
+      <div
+        style={{
+          width: "58%",
+          flexShrink: 0,
+          background: "linear-gradient(135deg, #1d4ed8 0%, #1e3a5f 40%, #0c2340 100%)",
           display: "flex",
           flexDirection: "column",
-          gap: "16px",
-        }}>
-          <p style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a", margin: 0 }}>
-            Sign in to your account
+          justifyContent: "flex-start",
+          padding: "44px 52px",
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        {/* Subtle geometric accent — large faint circle top-right */}
+        <div style={{
+          position: "absolute", top: "-120px", right: "-120px",
+          width: "420px", height: "420px", borderRadius: "50%",
+          border: "1px solid rgba(56,189,248,0.10)",
+          pointerEvents: "none",
+        }} />
+        <div style={{
+          position: "absolute", top: "-60px", right: "-60px",
+          width: "280px", height: "280px", borderRadius: "50%",
+          border: "1px solid rgba(56,189,248,0.07)",
+          pointerEvents: "none",
+        }} />
+        {/* Small accent dot bottom-left */}
+        <div style={{
+          position: "absolute", bottom: "80px", left: "-40px",
+          width: "180px", height: "180px", borderRadius: "50%",
+          background: "rgba(56,189,248,0.05)",
+          pointerEvents: "none",
+        }} />
+
+        {/* Logo + Headline grouped together near the top */}
+        <div style={{ position: "relative" }}>
+          {/* Logo */}
+          <div style={{ marginBottom: "36px" }}>
+            <img
+              src="/logo.jpg"
+              alt="Ripplr"
+              style={{ width: "70px", height: "70px", borderRadius: "24px", objectFit: "cover" }}
+            />
+          </div>
+
+          {/* Headline */}
+          <p style={{
+            fontSize: "11px", fontWeight: 600, letterSpacing: "0.12em",
+            textTransform: "uppercase", color: "rgba(56,189,248,0.7)", marginBottom: "16px",
+          }}>
+            Internal Tool
           </p>
-
-          {/* Username */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-            <label style={{
-              fontSize: "10px", fontWeight: 800, letterSpacing: "0.08em",
-              textTransform: "uppercase", color: "#475569",
-            }}>Username</label>
-            <input
-              type="text"
-              value={username}
-              onChange={e => setUsername(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Enter username"
-              autoComplete="username"
-              style={{
-                background: "#f8fafc", border: "1.5px solid #94a3b8",
-                borderRadius: "8px", padding: "9px 12px",
-                fontSize: "13px", fontWeight: 500, color: "#0f172a",
-                outline: "none", width: "100%",
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
-
-          {/* Password */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-            <label style={{
-              fontSize: "10px", fontWeight: 800, letterSpacing: "0.08em",
-              textTransform: "uppercase", color: "#475569",
-            }}>Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Enter password"
-              autoComplete="current-password"
-              style={{
-                background: "#f8fafc", border: "1.5px solid #94a3b8",
-                borderRadius: "8px", padding: "9px 12px",
-                fontSize: "13px", fontWeight: 500, color: "#0f172a",
-                outline: "none", width: "100%",
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
-
-          {/* Error */}
-          {error && (
-            <div style={{
-              background: "#fee2e2", border: "1.5px solid #fca5a5",
-              borderRadius: "8px", padding: "8px 12px",
-              fontSize: "12px", fontWeight: 600, color: "#991b1b",
-            }}>
-              {error}
-            </div>
-          )}
-
-          {/* Submit */}
-          <button
-            onClick={handleLogin}
-            disabled={loading || !username || !password}
-            style={{
-              background: loading || !username || !password ? "#93c5fd" : "#2563eb",
-              color: "#fff", border: "none", borderRadius: "8px",
-              padding: "10px 0", fontSize: "13px", fontWeight: 700,
-              cursor: loading || !username || !password ? "not-allowed" : "pointer",
-              width: "100%",
-              boxShadow: "0 2px 8px rgba(37,99,235,0.25)",
-              transition: "background 0.15s",
-            }}
-          >
-            {loading ? "Signing in…" : "Sign in"}
-          </button>
+          <h1 style={{
+            fontSize: "38px", fontWeight: 700, color: "#fff",
+            lineHeight: 1.15, letterSpacing: "-0.03em", margin: "0 0 16px",
+          }}>
+            Ripplr Analytics Console
+          </h1>
+          <p style={{ fontSize: "14px", color: "rgba(255,255,255,0.55)", lineHeight: 1.75, maxWidth: "340px" }}>
+            Unified for Ripplr Team
+          </p>
         </div>
 
-        <p style={{ textAlign: "center", fontSize: "11px", color: "#94a3b8", fontWeight: 500 }}>
-          Internal tool · Unauthorised access is prohibited
+        {/* Spacer to push footer down */}
+        <div style={{ flex: 1 }} />
+
+        {/* Footer */}
+        <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.22)", position: "relative" }}>
+          Ripplr Internal Tools · Authorised access only
         </p>
+      </div>
+
+      {/* ── Right panel ─────────────────────────────────────────── */}
+      <div
+        style={{
+          flex: 1,
+          background: "#f0f9ff",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "48px 32px",
+        }}
+      >
+        <div style={{ width: "100%", maxWidth: "380px" }}>
+          <div style={{
+            background: "#ffffff",
+            border: "1px solid #bae6fd",
+            borderRadius: "16px",
+            padding: "32px",
+            boxShadow: "0 2px 16px rgba(29,78,216,0.08)",
+          }}>
+            {/* Lockup */}
+            <div style={{ marginBottom: "26px" }}>
+              <div style={{ fontSize: "13px", fontWeight: 700, color: "#0c2340" }}>
+                Ripplr Internal Tools
+              </div>
+              <div style={{ fontSize: "12px", color: "#0284c7", marginTop: "2px" }}>
+                Analytics Dashboard
+              </div>
+            </div>
+
+            <h2 style={{
+              fontSize: "19px", fontWeight: 700, color: "#0c2340",
+              letterSpacing: "-0.02em", margin: "0 0 4px",
+            }}>
+              Welcome back
+            </h2>
+            <p style={{ fontSize: "13px", color: "#64748b", marginBottom: "22px" }}>
+              Sign in to continue to your dashboard
+            </p>
+
+            {/* Fields */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "14px", marginBottom: "16px" }}>
+              <div>
+                <label style={{
+                  display: "block", fontSize: "11px", fontWeight: 600,
+                  color: "#1e3a5f", marginBottom: "6px",
+                  textTransform: "uppercase", letterSpacing: "0.06em",
+                }}>
+                  Username
+                </label>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={e => setUsername(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  autoComplete="username"
+                  placeholder="Enter your username"
+                  style={{
+                    width: "100%", padding: "10px 13px",
+                    fontSize: "13px", color: "#0c2340",
+                    background: "#f0f9ff", border: "1.5px solid #bae6fd",
+                    borderRadius: "9px", outline: "none",
+                    boxSizing: "border-box", fontFamily: "inherit",
+                    transition: "border-color 0.15s, background 0.15s",
+                  }}
+                  onFocus={e => { e.currentTarget.style.borderColor = "#1d4ed8"; e.currentTarget.style.background = "#fff"; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = "#bae6fd"; e.currentTarget.style.background = "#f0f9ff"; }}
+                />
+              </div>
+
+              <div>
+                <label style={{
+                  display: "block", fontSize: "11px", fontWeight: 600,
+                  color: "#1e3a5f", marginBottom: "6px",
+                  textTransform: "uppercase", letterSpacing: "0.06em",
+                }}>
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                  style={{
+                    width: "100%", padding: "10px 13px",
+                    fontSize: "13px", color: "#0c2340",
+                    background: "#f0f9ff", border: "1.5px solid #bae6fd",
+                    borderRadius: "9px", outline: "none",
+                    boxSizing: "border-box", fontFamily: "inherit",
+                    transition: "border-color 0.15s, background 0.15s",
+                  }}
+                  onFocus={e => { e.currentTarget.style.borderColor = "#1d4ed8"; e.currentTarget.style.background = "#fff"; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = "#bae6fd"; e.currentTarget.style.background = "#f0f9ff"; }}
+                />
+              </div>
+            </div>
+
+            {error && (
+              <div style={{
+                background: "#fff1f2", border: "1px solid #fecdd3",
+                borderRadius: "8px", padding: "9px 13px",
+                fontSize: "12px", color: "#be123c", marginBottom: "14px",
+              }}>
+                {error}
+              </div>
+            )}
+
+            <button
+              onClick={handleLogin}
+              disabled={loading}
+              style={{
+                width: "100%", padding: "11px 0",
+                background: loading ? "#93c5fd" : "#1d4ed8",
+                color: "#fff",
+                border: "none", borderRadius: "9px",
+                fontSize: "13px", fontWeight: 600,
+                cursor: loading ? "not-allowed" : "pointer",
+                fontFamily: "inherit",
+                transition: "background 0.15s",
+              }}
+            >
+              {loading ? "Signing in…" : "Sign in →"}
+            </button>
+
+            <div style={{
+              marginTop: "22px", paddingTop: "18px",
+              borderTop: "1px solid #e0f2fe",
+              textAlign: "center", fontSize: "11px", color: "#94a3b8",
+            }}>
+              Access restricted to authorised Ripplr personnel
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

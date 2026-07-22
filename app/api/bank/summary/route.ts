@@ -1,15 +1,10 @@
-// FILE PATH: bank_cdms_dashboard/app/api/bank/summary/route.ts — NEW FILE
+// FILE PATH: bank_cdms_dashboard/app/api/bank/summary/route.ts — REPLACE EXISTING
 
 import { NextRequest, NextResponse } from "next/server";
 import { dbQuery } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-// Normalise bank Date column to YYYY-MM
-// Two formats observed:
-//   YYYY-MM-DD HH:MM:SS  -> SUBSTR(,1,7) gives YYYY-MM
-//   MM/DD/YYYY           -> rearrange
-//   DD-Mon-YYYY          -> e.g. 01-Jan-2024  (HDFC branch statements)
 const MONTH_EXPR = `
   CASE
     WHEN SUBSTR(Date, 5, 1) = '-'
@@ -31,7 +26,7 @@ const MONTH_EXPR = `
 `;
 
 function buildWhere(params: URLSearchParams) {
-  const where: string[] = ["Row_Category = 'Distribution'"];
+  const where: string[] = [];
   const binds: unknown[] = [];
 
   const addIn = (col: string, vals: string[]) => {
@@ -45,17 +40,18 @@ function buildWhere(params: URLSearchParams) {
   addIn("FC",             params.getAll("fc"));
   addIn("Brand",          params.getAll("brand"));
   addIn("Narration_Type", params.getAll("narrType"));
+  addIn("Row_Category",   params.getAll("rowCategory"));
 
   const ref      = params.get("ref")      || "";
   const dateFrom = params.get("dateFrom") || "";
   const dateTo   = params.get("dateTo")   || "";
 
-  if (ref)      { where.push("Narration LIKE ?");              binds.push(`%${ref}%`); }
+  if (ref)      { where.push("Extracted_Ref LIKE ?");              binds.push(`%${ref}%`); }
   if (dateFrom) { where.push(`(${MONTH_EXPR}) >= SUBSTR(?,1,7)`); binds.push(dateFrom); }
   if (dateTo)   { where.push(`(${MONTH_EXPR}) <= SUBSTR(?,1,7)`); binds.push(dateTo); }
 
   return {
-    W: "WHERE " + where.join(" AND "),
+    W: where.length ? "WHERE " + where.join(" AND ") : "",
     binds,
   };
 }
@@ -92,18 +88,29 @@ const totalsSql = (W: string) => `
 export async function GET(req: NextRequest) {
   try {
     const params = new URL(req.url).searchParams;
+
+    // Single WHERE clause for everything — all rows including Excluded.
+    // Excluded rows have Match_Status='Excluded' so they contribute to total
+    // but fall through the Full Match / Partial / Unmatched CASE expressions as 0.
     const { W, binds } = buildWhere(params);
 
-    const [byAccount, byMonth, totalsRows, accountRows, fcRows, brandRows, narrTypeRows] =
-      await Promise.all([
-        dbQuery(pivotSql(W, "Bank_Account", "total DESC"), binds),
-        dbQuery(pivotSql(W, MONTH_EXPR, "grp_key ASC"), binds),
-        dbQuery(totalsSql(W), binds),
-        dbQuery(`SELECT DISTINCT Bank_Account AS v FROM bank_data WHERE Bank_Account IS NOT NULL AND Bank_Account != '' AND Row_Category = 'Distribution' ORDER BY Bank_Account ASC`),
-        dbQuery(`SELECT DISTINCT FC AS v FROM bank_data WHERE FC IS NOT NULL AND FC != '' AND Row_Category = 'Distribution' ORDER BY FC ASC`),
-        dbQuery(`SELECT DISTINCT Brand AS v FROM bank_data WHERE Brand IS NOT NULL AND Brand != '' AND Row_Category = 'Distribution' ORDER BY Brand ASC`),
-        dbQuery(`SELECT DISTINCT Narration_Type AS v FROM bank_data WHERE Narration_Type IS NOT NULL AND Narration_Type != '' AND Row_Category = 'Distribution' ORDER BY Narration_Type ASC`),
-      ]);
+    const [
+      byAccount,
+      byMonth,
+      totalsRows,
+      accountRows,
+      fcRows,
+      brandRows,
+      narrTypeRows,
+    ] = await Promise.all([
+      dbQuery(pivotSql(W, "Bank_Account", "total DESC"), binds),
+      dbQuery(pivotSql(W, MONTH_EXPR,     "grp_key ASC"), binds),
+      dbQuery(totalsSql(W), binds),
+      dbQuery(`SELECT DISTINCT Bank_Account AS v FROM bank_data WHERE Bank_Account IS NOT NULL AND Bank_Account != '' ORDER BY Bank_Account ASC`),
+      dbQuery(`SELECT DISTINCT FC AS v FROM bank_data WHERE FC IS NOT NULL AND FC != '' AND Row_Category = 'Distribution' ORDER BY FC ASC`),
+      dbQuery(`SELECT DISTINCT Brand AS v FROM bank_data WHERE Brand IS NOT NULL AND Brand != '' AND Row_Category = 'Distribution' ORDER BY Brand ASC`),
+      dbQuery(`SELECT DISTINCT Narration_Type AS v FROM bank_data WHERE Narration_Type IS NOT NULL AND Narration_Type != '' ORDER BY Narration_Type ASC`),
+    ]);
 
     const byMonthClean = byMonth.filter(
       r => r.grp_key && String(r.grp_key).match(/^\d{4}-\d{2}$/)
@@ -114,11 +121,12 @@ export async function GET(req: NextRequest) {
       by_month:   byMonthClean,
       totals:     totalsRows[0] ?? {},
       filter_opts: {
-        account:   accountRows.map(r => r.v),
-        fc:        fcRows.map(r => r.v),
-        brand:     brandRows.map(r => r.v),
-        narrType:  narrTypeRows.map(r => r.v),
-        status:    ["Full Match", "Partial Match", "Unmatched"],
+        account:     accountRows.map(r => r.v),
+        fc:          fcRows.map(r => r.v),
+        brand:       brandRows.map(r => r.v),
+        narrType:    narrTypeRows.map(r => r.v),
+        status:      ["Full Match", "Partial Match", "Unmatched", "Excluded"],
+        rowCategory: ["Distribution", "Excluded"],
       },
     });
   } catch (err: unknown) {

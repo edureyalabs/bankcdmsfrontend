@@ -1,17 +1,14 @@
+// components/Nav.tsx
 "use client";
-// FILE PATH: components/Nav.tsx — REPLACE EXISTING
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const ALL_TABS = [
-  { label: "CDMS Mapping",      path: "/cdms"               },
-  { label: "Bank Mapping",      path: "/bank"               },
-  { label: "Cheque Clearance",  path: "/cheque-clearance"   },
-  { label: "Sales Targets",     path: "/sales/targets"      },
-  { label: "MTD Report",        path: "/sales/report"       },
-  { label: "Command Centre",    path: "/sales/command"      },
-  { label: "Salesman Drill",    path: "/sales/salesman"     },
+  { label: "CDMS Mapping",              path: "/cdms"          },
+  { label: "Bank Mapping",              path: "/bank"          },
+  { label: "Brand v/s CDMS Collections", path: "/brand-vs-cdms" },
+  { label: "GST Checker",               path: "/gst-checker"   },
 ];
 
 interface AuthInfo {
@@ -26,10 +23,10 @@ export default function Nav() {
   const [authInfo, setAuthInfo] = useState<AuthInfo | null>(null);
 
   const isAuth =
-    pathname.startsWith("/cdms")             ||
-    pathname.startsWith("/bank")             ||
-    pathname.startsWith("/sales")            ||
-    pathname.startsWith("/cheque-clearance");
+    pathname.startsWith("/cdms")          ||
+    pathname.startsWith("/bank")          ||
+    pathname.startsWith("/brand-vs-cdms") ||
+    pathname.startsWith("/gst-checker");
 
   useEffect(() => {
     if (!isAuth) return;
@@ -97,11 +94,7 @@ export default function Nav() {
         alignItems: "center",
         justifyContent: "space-between",
       }}>
-
-        {/* Left: brand + tabs */}
         <div style={{ display: "flex", alignItems: "center", height: "100%" }}>
-
-          {/* Brand */}
           <div style={{ display: "flex", alignItems: "center", gap: "10px", marginRight: "24px" }}>
             <div style={{
               width: "28px", height: "28px", borderRadius: "7px",
@@ -115,17 +108,11 @@ export default function Nav() {
                 <rect x="9" y="9" width="5" height="5" rx="1" fill="white"/>
               </svg>
             </div>
-            <span style={{
-              fontWeight: 800, fontSize: "15px", color: "#f8fafc", letterSpacing: "-0.02em",
-            }}>
+            <span style={{ fontWeight: 800, fontSize: "15px", color: "#f8fafc", letterSpacing: "-0.02em" }}>
               Data<span style={{ color: "#60a5fa" }}> Analytics</span>
             </span>
           </div>
-
-          {/* Divider */}
           <div style={{ width: "1px", height: "22px", background: "#1e293b", marginRight: "8px" }} />
-
-          {/* Tabs */}
           <div style={{ display: "flex", alignItems: "stretch", height: "100%" }}>
             {visibleTabs.map(tab => (
               <button
@@ -147,7 +134,6 @@ export default function Nav() {
           </div>
         </div>
 
-        {/* Right: role badge + sign out */}
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           {role && (
             <span style={{
@@ -160,19 +146,13 @@ export default function Nav() {
               {roleLabel}
             </span>
           )}
-
           <button
             onClick={handleLogout}
             style={{
-              background: "rgba(255,255,255,0.07)",
-              color: "#94a3b8",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: "7px",
-              padding: "5px 14px",
-              fontSize: "12px",
-              fontWeight: 600,
-              cursor: "pointer",
-              transition: "background 0.15s, color 0.15s",
+              background: "rgba(255,255,255,0.07)", color: "#94a3b8",
+              border: "1px solid rgba(255,255,255,0.1)", borderRadius: "7px",
+              padding: "5px 14px", fontSize: "12px", fontWeight: 600,
+              cursor: "pointer", transition: "background 0.15s, color 0.15s",
               letterSpacing: "0.01em",
             }}
             onMouseEnter={e => {
@@ -187,7 +167,6 @@ export default function Nav() {
             Sign out
           </button>
         </div>
-
       </div>
     </nav>
   );

@@ -4,16 +4,13 @@ import { NextRequest, NextResponse } from "next/server";
 
 const ROLE_PAGE_MAP: Record<string, string[]> = {
   admin: [
-    "/cdms", "/bank", "/sales", "/cheque-clearance",
-    "/api/cdms", "/api/bank", "/api/sales", "/api/summary", "/api/cheque-clearance",
+    "/cdms", "/bank","/brand-vs-cdms","/gst-checker",
   ],
   commercial_executive: [
-    "/cdms", "/bank", "/cheque-clearance",
-    "/api/cdms", "/api/bank", "/api/summary", "/api/cheque-clearance",
+    "/cdms", "/bank",
   ],
   venkatesh: [
-    "/sales/targets", "/sales/report", "/sales/command", "/sales/salesman",
-    "/api/sales",
+    "/cdms", "/bank",
   ],
 };
 

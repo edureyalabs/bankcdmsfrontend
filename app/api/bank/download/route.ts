@@ -1,4 +1,4 @@
-// FILE PATH: bank_cdms_dashboard/app/api/bank/download/route.ts — NEW FILE
+// FILE PATH: bank_cdms_dashboard/app/api/bank/download/route.ts — REPLACE EXISTING
 
 import { NextRequest, NextResponse } from "next/server";
 import { dbQuery } from "@/lib/db";
@@ -29,7 +29,9 @@ export async function GET(req: NextRequest) {
   try {
     const params = new URL(req.url).searchParams;
 
-    const where: string[] = ["Row_Category = 'Distribution'"];
+    // No hard Row_Category filter — all rows exported by default.
+    // UI passes ?rowCategory=Distribution and/or ?rowCategory=Excluded to filter.
+    const where: string[] = [];
     const binds: unknown[] = [];
 
     const addIn = (col: string, vals: string[]) => {
@@ -43,20 +45,21 @@ export async function GET(req: NextRequest) {
     addIn("FC",             params.getAll("fc"));
     addIn("Brand",          params.getAll("brand"));
     addIn("Narration_Type", params.getAll("narrType"));
+    addIn("Row_Category",   params.getAll("rowCategory"));
 
     const ref      = params.get("ref")      || "";
     const dateFrom = params.get("dateFrom") || "";
     const dateTo   = params.get("dateTo")   || "";
 
-    if (ref)      { where.push("Narration LIKE ?");                  binds.push(`%${ref}%`); }
+    if (ref)      { where.push("Extracted_Ref LIKE ?");                  binds.push(`%${ref}%`); }
     if (dateFrom) { where.push(`(${MONTH_EXPR}) >= SUBSTR(?,1,7)`);  binds.push(dateFrom); }
     if (dateTo)   { where.push(`(${MONTH_EXPR}) <= SUBSTR(?,1,7)`);  binds.push(dateTo); }
 
-    const W = "WHERE " + where.join(" AND ");
+    const W = where.length ? "WHERE " + where.join(" AND ") : "";
 
     const rows = await dbQuery(
       `SELECT
-         Bank_Account, Date, Match_Status, FC, Brand,
+         Bank_Account, Date, Match_Status, Row_Category, FC, Brand,
          Narration, Chq_Ref, Narration_Type,
          Deposit_Amt, Withdrawal_Amt,
          Extracted_Ref, Matched_Retailer, Invoice_Numbers,
