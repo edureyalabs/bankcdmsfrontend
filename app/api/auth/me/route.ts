@@ -1,10 +1,10 @@
-// FILE PATH: app/api/auth/me/route.ts — REPLACE EXISTING
+// app/api/auth/me/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
 
 const ROLE_PAGES: Record<string, string[]> = {
   admin: [
-    "/cdms", "/bank","/brand-vs-cdms","/gst-checker"
+    "/cdms", "/bank",
   ],
   commercial_executive: [
     "/cdms", "/bank",

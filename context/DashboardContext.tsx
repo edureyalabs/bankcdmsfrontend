@@ -1,4 +1,4 @@
-// FILE PATH: bank_cdms_dashboard/context/DashboardContext.tsx — REPLACE EXISTING
+// context/DashboardContext.tsx
 
 "use client";
 
@@ -113,17 +113,19 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   // ── CDMS ────────────────────────────────────────────────────────────────────
   const [cdmsData,    setCdmsData]    = useState<CdmsSummaryData | null>(null);
-  const [cdmsLoading, setCdmsLoading] = useState(true);
+  const [cdmsLoading, setCdmsLoading] = useState(false);
   const [cdmsError,   setCdmsError]   = useState("");
   const [cdmsFilters, setCdmsFilters] = useState<CdmsFilters>(CDMS_EMPTY);
   const [cdmsDraft,   setCdmsDraft]   = useState<CdmsFilters>(CDMS_EMPTY);
   const [cdmsQS,      setCdmsQS]      = useState("");
-  const cdmsFetching = useRef(false);
+  const cdmsFetching = useRef(false); // true while in-flight OR already loaded
+  const cdmsLoaded   = useRef(false); // true once first successful load is done
 
-  const fetchCdms = useCallback((f: CdmsFilters) => {
+  const fetchCdms = useCallback((f: CdmsFilters, isRefresh = false) => {
     const qs = buildCdmsQS(f);
     setCdmsQS(qs);
-    setCdmsLoading(true);
+    // Only show loading spinner on first-ever load, not on filter applies
+    if (!cdmsLoaded.current || isRefresh) setCdmsLoading(true);
     setCdmsError("");
     fetch("/api/cdms/summary" + (qs ? "?" + qs : ""))
       .then(r => {
@@ -131,20 +133,28 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         return r.json();
       })
       .then((d: CdmsSummaryData & { error?: string }) => {
-        if (d.error) { setCdmsError(d.error); } else { setCdmsData(d); }
+        if (d.error) {
+          setCdmsError(d.error);
+        } else {
+          setCdmsData(d);
+          cdmsLoaded.current = true;
+        }
         setCdmsLoading(false);
-        cdmsFetching.current = false; // reset so next mount re-fetches fresh data
+        // Do NOT reset cdmsFetching here — keeps ensureCdms from re-fetching on navigation
       })
       .catch((e: unknown) => {
         setCdmsError(e instanceof Error ? e.message : String(e));
         setCdmsLoading(false);
+        // Reset on error so the user can retry by refreshing the page
         cdmsFetching.current = false;
       });
   }, []);
 
   const ensureCdms = useCallback(() => {
+    // Skip if a fetch is already in-flight or data was already loaded
     if (cdmsFetching.current) return;
     cdmsFetching.current = true;
+    setCdmsLoading(true);
     fetchCdms(CDMS_EMPTY);
   }, [fetchCdms]);
 
@@ -162,19 +172,20 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     fetchCdms(CDMS_EMPTY);
   }, [fetchCdms]);
 
-  // ── Bank ─────────────────────────────────────────────────────────────────────
+  // ── Bank ──────────────────────────────────────────────────────────────────────
   const [bankData,    setBankData]    = useState<BankSummaryData | null>(null);
-  const [bankLoading, setBankLoading] = useState(true);
+  const [bankLoading, setBankLoading] = useState(false);
   const [bankError,   setBankError]   = useState("");
   const [bankFilters, setBankFilters] = useState<BankFilters>(BANK_EMPTY);
   const [bankDraft,   setBankDraft]   = useState<BankFilters>(BANK_EMPTY);
   const [bankQS,      setBankQS]      = useState("");
-  const bankFetching = useRef(false);
+  const bankFetching = useRef(false); // true while in-flight OR already loaded
+  const bankLoaded   = useRef(false); // true once first successful load is done
 
   const fetchBank = useCallback((f: BankFilters) => {
     const qs = buildBankQS(f);
     setBankQS(qs);
-    setBankLoading(true);
+    if (!bankLoaded.current) setBankLoading(true);
     setBankError("");
     fetch("/api/bank/summary" + (qs ? "?" + qs : ""))
       .then(r => {
@@ -182,20 +193,28 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         return r.json();
       })
       .then((d: BankSummaryData & { error?: string }) => {
-        if (d.error) { setBankError(d.error); } else { setBankData(d); }
+        if (d.error) {
+          setBankError(d.error);
+        } else {
+          setBankData(d);
+          bankLoaded.current = true;
+        }
         setBankLoading(false);
-        bankFetching.current = false; // reset so next mount re-fetches fresh data
+        // Do NOT reset bankFetching here — keeps ensureBank from re-fetching on navigation
       })
       .catch((e: unknown) => {
         setBankError(e instanceof Error ? e.message : String(e));
         setBankLoading(false);
+        // Reset on error so the user can retry by refreshing the page
         bankFetching.current = false;
       });
   }, []);
 
   const ensureBank = useCallback(() => {
+    // Skip if a fetch is already in-flight or data was already loaded
     if (bankFetching.current) return;
     bankFetching.current = true;
+    setBankLoading(true);
     fetchBank(BANK_EMPTY);
   }, [fetchBank]);
 
