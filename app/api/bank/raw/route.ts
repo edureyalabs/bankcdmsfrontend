@@ -1,14 +1,14 @@
-// FILE PATH: bank_cdms_dashboard/app/api/bank/raw/route.ts — REPLACE EXISTING
+// app/api/bank/raw/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
 import { dbQuery } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-const MONTH_EXPR = `
+const DATE_ISO = `
   CASE
     WHEN SUBSTR(Date, 5, 1) = '-'
-    THEN SUBSTR(Date, 1, 7)
+    THEN SUBSTR(Date, 1, 10)
     WHEN INSTR(Date, '/') > 0
     THEN
       SUBSTR(Date,
@@ -17,11 +17,16 @@ const MONTH_EXPR = `
         4
       )
       || '-'
-      || SUBSTR(
-           '0' || SUBSTR(Date, 1, INSTR(Date, '/') - 1),
-           -2
-         )
-    ELSE SUBSTR(Date, 1, 7)
+      || SUBSTR('0' || SUBSTR(Date, 1, INSTR(Date, '/') - 1), -2)
+      || '-'
+      || SUBSTR('0' ||
+           SUBSTR(
+             SUBSTR(Date, INSTR(Date, '/') + 1),
+             1,
+             INSTR(SUBSTR(Date, INSTR(Date, '/') + 1), '/') - 1
+           ),
+         -2)
+    ELSE SUBSTR(Date, 1, 10)
   END
 `;
 
@@ -29,8 +34,6 @@ export async function GET(req: NextRequest) {
   try {
     const params = new URL(req.url).searchParams;
 
-    // No hard Row_Category filter — all rows visible by default.
-    // UI passes ?rowCategory=Distribution and/or ?rowCategory=Excluded to filter.
     const where: string[] = [];
     const binds: unknown[] = [];
 
@@ -51,9 +54,9 @@ export async function GET(req: NextRequest) {
     const dateFrom = params.get("dateFrom") || "";
     const dateTo   = params.get("dateTo")   || "";
 
-    if (ref)      { where.push("Extracted_Ref LIKE ?");                  binds.push(`%${ref}%`); }
-    if (dateFrom) { where.push(`(${MONTH_EXPR}) >= SUBSTR(?,1,7)`);  binds.push(dateFrom); }
-    if (dateTo)   { where.push(`(${MONTH_EXPR}) <= SUBSTR(?,1,7)`);  binds.push(dateTo); }
+    if (ref)      { where.push("Extracted_Ref LIKE ?"); binds.push(`%${ref}%`); }
+    if (dateFrom) { where.push(`(${DATE_ISO}) >= ?`);   binds.push(dateFrom); }
+    if (dateTo)   { where.push(`(${DATE_ISO}) <= ?`);   binds.push(dateTo); }
 
     const W      = where.length ? "WHERE " + where.join(" AND ") : "";
     const limit  = Math.min(Math.max(parseInt(params.get("limit")  || "100", 10), 1), 500);
@@ -70,7 +73,7 @@ export async function GET(req: NextRequest) {
     const [countRows, rows] = await Promise.all([
       dbQuery(`SELECT COUNT(*) AS total FROM bank_data ${W}`, binds),
       dbQuery(
-        `SELECT ${selectCols} FROM bank_data ${W} ORDER BY Date DESC, Bank_Account ASC LIMIT ? OFFSET ?`,
+        `SELECT ${selectCols} FROM bank_data ${W} ORDER BY (${DATE_ISO}) DESC, Bank_Account ASC LIMIT ? OFFSET ?`,
         [...binds, limit, offset]
       ),
     ]);

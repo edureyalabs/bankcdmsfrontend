@@ -3,8 +3,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: [
-    "*.ngrok-free.dev",
-    "https://fracture-distaste-spherical.ngrok-free.dev"
+    "*.trycloudflare.com",
+    "*.ngrok-free.app"
   ],
   serverExternalPackages: ['playwright', 'better-sqlite3'],
 };

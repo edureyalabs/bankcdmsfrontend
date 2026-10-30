@@ -5,8 +5,6 @@
 import { createContext, useContext, useState, useCallback, useRef, ReactNode } from "react";
 import { invalidateRawCache } from "@/components/RawTable";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
 export interface PivotRow {
   grp_key: string; total: number; full_match: number; partial: number; unmatched: number;
   total_count: number; full_count: number; partial_count: number; unmatched_count: number;
@@ -50,8 +48,6 @@ export const BANK_EMPTY: BankFilters = {
   ref: "", dateFrom: "", dateTo: "",
 };
 
-// ── QS builders ───────────────────────────────────────────────────────────────
-
 export function buildCdmsQS(f: CdmsFilters): string {
   const p = new URLSearchParams();
   f.fc.forEach(v     => p.append("fc",     v));
@@ -79,8 +75,6 @@ export function buildBankQS(f: BankFilters): string {
   return p.toString();
 }
 
-// ── Context shape ─────────────────────────────────────────────────────────────
-
 interface DashboardContextValue {
   cdmsData:     CdmsSummaryData | null;
   cdmsLoading:  boolean;
@@ -107,25 +101,22 @@ interface DashboardContextValue {
 
 const DashboardContext = createContext<DashboardContextValue | null>(null);
 
-// ── Provider ──────────────────────────────────────────────────────────────────
-
 export function DashboardProvider({ children }: { children: ReactNode }) {
 
-  // ── CDMS ────────────────────────────────────────────────────────────────────
+  // ── CDMS ──────────────────────────────────────────────────────────────────
   const [cdmsData,    setCdmsData]    = useState<CdmsSummaryData | null>(null);
   const [cdmsLoading, setCdmsLoading] = useState(false);
   const [cdmsError,   setCdmsError]   = useState("");
   const [cdmsFilters, setCdmsFilters] = useState<CdmsFilters>(CDMS_EMPTY);
   const [cdmsDraft,   setCdmsDraft]   = useState<CdmsFilters>(CDMS_EMPTY);
   const [cdmsQS,      setCdmsQS]      = useState("");
-  const cdmsFetching = useRef(false); // true while in-flight OR already loaded
-  const cdmsLoaded   = useRef(false); // true once first successful load is done
+  const cdmsFetching = useRef(false);
+  const cdmsLoaded   = useRef(false);
 
-  const fetchCdms = useCallback((f: CdmsFilters, isRefresh = false) => {
+  const fetchCdms = useCallback((f: CdmsFilters) => {
     const qs = buildCdmsQS(f);
     setCdmsQS(qs);
-    // Only show loading spinner on first-ever load, not on filter applies
-    if (!cdmsLoaded.current || isRefresh) setCdmsLoading(true);
+    setCdmsLoading(true); // always show loading — on first load AND on every Apply/Reset
     setCdmsError("");
     fetch("/api/cdms/summary" + (qs ? "?" + qs : ""))
       .then(r => {
@@ -133,28 +124,19 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         return r.json();
       })
       .then((d: CdmsSummaryData & { error?: string }) => {
-        if (d.error) {
-          setCdmsError(d.error);
-        } else {
-          setCdmsData(d);
-          cdmsLoaded.current = true;
-        }
+        if (d.error) { setCdmsError(d.error); } else { setCdmsData(d); cdmsLoaded.current = true; }
         setCdmsLoading(false);
-        // Do NOT reset cdmsFetching here — keeps ensureCdms from re-fetching on navigation
       })
       .catch((e: unknown) => {
         setCdmsError(e instanceof Error ? e.message : String(e));
         setCdmsLoading(false);
-        // Reset on error so the user can retry by refreshing the page
-        cdmsFetching.current = false;
+        cdmsFetching.current = false; // allow retry on error
       });
   }, []);
 
   const ensureCdms = useCallback(() => {
-    // Skip if a fetch is already in-flight or data was already loaded
-    if (cdmsFetching.current) return;
+    if (cdmsFetching.current) return; // skip if in-flight or already loaded
     cdmsFetching.current = true;
-    setCdmsLoading(true);
     fetchCdms(CDMS_EMPTY);
   }, [fetchCdms]);
 
@@ -172,20 +154,20 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     fetchCdms(CDMS_EMPTY);
   }, [fetchCdms]);
 
-  // ── Bank ──────────────────────────────────────────────────────────────────────
+  // ── Bank ──────────────────────────────────────────────────────────────────
   const [bankData,    setBankData]    = useState<BankSummaryData | null>(null);
   const [bankLoading, setBankLoading] = useState(false);
   const [bankError,   setBankError]   = useState("");
   const [bankFilters, setBankFilters] = useState<BankFilters>(BANK_EMPTY);
   const [bankDraft,   setBankDraft]   = useState<BankFilters>(BANK_EMPTY);
   const [bankQS,      setBankQS]      = useState("");
-  const bankFetching = useRef(false); // true while in-flight OR already loaded
-  const bankLoaded   = useRef(false); // true once first successful load is done
+  const bankFetching = useRef(false);
+  const bankLoaded   = useRef(false);
 
   const fetchBank = useCallback((f: BankFilters) => {
     const qs = buildBankQS(f);
     setBankQS(qs);
-    if (!bankLoaded.current) setBankLoading(true);
+    setBankLoading(true); // always show loading — on first load AND on every Apply/Reset
     setBankError("");
     fetch("/api/bank/summary" + (qs ? "?" + qs : ""))
       .then(r => {
@@ -193,28 +175,19 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         return r.json();
       })
       .then((d: BankSummaryData & { error?: string }) => {
-        if (d.error) {
-          setBankError(d.error);
-        } else {
-          setBankData(d);
-          bankLoaded.current = true;
-        }
+        if (d.error) { setBankError(d.error); } else { setBankData(d); bankLoaded.current = true; }
         setBankLoading(false);
-        // Do NOT reset bankFetching here — keeps ensureBank from re-fetching on navigation
       })
       .catch((e: unknown) => {
         setBankError(e instanceof Error ? e.message : String(e));
         setBankLoading(false);
-        // Reset on error so the user can retry by refreshing the page
-        bankFetching.current = false;
+        bankFetching.current = false; // allow retry on error
       });
   }, []);
 
   const ensureBank = useCallback(() => {
-    // Skip if a fetch is already in-flight or data was already loaded
     if (bankFetching.current) return;
     bankFetching.current = true;
-    setBankLoading(true);
     fetchBank(BANK_EMPTY);
   }, [fetchBank]);
 
@@ -245,8 +218,6 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     </DashboardContext.Provider>
   );
 }
-
-// ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function useDashboard() {
   const ctx = useContext(DashboardContext);
